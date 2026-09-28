@@ -1,2 +1,5 @@
 streamlit
 google-genai
+treamlit
+google-genai
+audio-recorder-streamlit
