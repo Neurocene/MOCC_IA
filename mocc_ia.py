@@ -92,28 +92,28 @@ with col_sinistra:
         appunti = st.text_area(
             "Scrivi o modifica gli appunti:",
             value=testo_voce_o_file,
-            height=280,
+            height=260,
             placeholder="Es: Marta e Giovanni si incontrano a Ponte Milvio..."
         )
         st.session_state['appunti_temp'] = appunti
 
-        st.write("🎙️ **Registra Vocale:**")
-        audio_bytes = audio_recorder(text="Clicca per registrare", icon_size="2x", key="recorder")
+        st.write("🎙️ **Registra Vocale per Appunti:**")
+        audio_bytes_appunti = audio_recorder(text="Clicca per iniziare/fermare la registrazione", icon_size="2x", key="rec_appunti")
         
-        # Gestione audio senza blocco/loop infinito
-        if audio_bytes and st.session_state.get('ultimo_audio') != audio_bytes:
-            st.session_state['ultimo_audio'] = audio_bytes
-            with st.spinner("🎧 Trascrizione vocale in corso..."):
-                try:
-                    resp_audio = client.models.generate_content(
-                        model='gemini-3.8-flash',
-                        contents=["Trascrivi fedelmente questo audio in italiano:", genai.types.Part.from_bytes(data=audio_bytes, mime_type="audio/wav")]
-                    )
-                    st.session_state['appunti_voce_o_file'] = resp_audio.text
-                    st.toast("✅ Vocale trascritto con successo!", icon="🎙️")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Errore audio: {e}")
+        # Tasto per Confermare e Inviare il Vocale degli Appunti
+        if audio_bytes_appunti:
+            if st.button("🛑 STOP & TRASCRIVI APPUNTI VOCALI", type="secondary", use_container_width=True):
+                with st.spinner("🎧 Trascrizione vocale in corso..."):
+                    try:
+                        resp_audio = client.models.generate_content(
+                            model='gemini-3.8-flash',
+                            contents=["Trascrivi fedelmente questo audio in italiano:", genai.types.Part.from_bytes(data=audio_bytes_appunti, mime_type="audio/wav")]
+                        )
+                        st.session_state['appunti_voce_o_file'] = resp_audio.text
+                        st.toast("✅ Vocale trascritto con successo negli appunti!", icon="🎙️")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Errore audio: {e}")
 
         file_appunti_up = st.file_uploader("📂 Carica file .txt per gli appunti:", type=["txt"], key="up_appunti")
         if file_appunti_up is not None:
@@ -157,7 +157,7 @@ with col_sinistra:
         scena_finale = st.text_area(
             "Testo finale della scena (puoi modificarlo):",
             value=st.session_state.get('scena_generata', ''),
-            height=280
+            height=260
         )
         st.session_state['scena_generata'] = scena_finale
 
@@ -201,13 +201,31 @@ with col_destra:
     if file_luce is not None:
         testo_file_luce = file_luce.read().decode("utf-8", errors="ignore")
 
-    domanda_luce = st.text_area("Chiedi un consiglio a Luce:", placeholder="Es: Come impostare meglio i dialoghi?", height=100)
+    domanda_luce = st.text_area("Chiedi un consiglio a Luce:", placeholder="Es: Come impostare meglio i dialoghi?", height=90)
     
-    if st.button("💬 Parla con Luce", use_container_width=True):
-        if domanda_luce or testo_file_luce:
+    st.write("🎙️ **Parla a voce con Luce:**")
+    audio_bytes_luce = audio_recorder(text="Clicca per registrare la domanda per Luce", icon_size="2x", key="rec_luce")
+    
+    testo_voce_luce = ""
+    if audio_bytes_luce:
+        if st.button("🛑 STOP & TRASCRIVI PER LUCE", type="secondary", use_container_width=True):
+            with st.spinner("🎧 Trascrizione del messaggio per Luce..."):
+                try:
+                    resp_audio_l = client.models.generate_content(
+                        model='gemini-3.8-flash',
+                        contents=["Trascrivi fedelmente questo audio in italiano:", genai.types.Part.from_bytes(data=audio_bytes_luce, mime_type="audio/wav")]
+                    )
+                    testo_voce_luce = resp_audio_l.text
+                    st.toast("✅ Messaggio vocale per Luce trascritto!", icon="💡")
+                except Exception as e:
+                    st.error(f"Errore audio Luce: {e}")
+
+    if st.button("💬 Parla con Luce", use_container_width=True, type="primary"):
+        testo_completo_domanda = domanda_luce + ("\n" + testo_voce_luce if testo_voce_luce else "")
+        if testo_completo_domanda or testo_file_luce:
             with st.spinner("Luce sta analizzando..."):
                 try:
-                    prompt_l = f"Sei Luce, un'esperta editor narrativa. Rispondi in modo pratico.\nFile allegato: {testo_file_luce}\nDomanda: {domanda_luce}"
+                    prompt_l = f"Sei Luce, un'esperta editor narrativa. Rispondi in modo pratico.\nFile allegato: {testo_file_luce}\nDomanda dello scrittore: {testo_completo_domanda}"
                     resp_l = client.models.generate_content(
                         model='gemini-3.8-flash',
                         contents=prompt_l
