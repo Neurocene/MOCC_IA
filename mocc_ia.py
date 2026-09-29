@@ -31,7 +31,6 @@ client = genai.Client(api_key=API_KEY)
 
 st.set_page_config(page_title="MOCC_IA", page_icon="📚", layout="wide")
 
-# Stile grafico minimo per evitare sovrapposizioni
 st.markdown("""
     <style>
     .scena-evidenziata {
@@ -94,13 +93,16 @@ with col_sinistra:
             "Scrivi o modifica gli appunti:",
             value=testo_voce_o_file,
             height=280,
-            placeholder="Es: Marco incontra Elena al bar..."
+            placeholder="Es: Marta e Giovanni si incontrano a Ponte Milvio..."
         )
         st.session_state['appunti_temp'] = appunti
 
         st.write("🎙️ **Registra Vocale:**")
-        audio_bytes = audio_recorder(text="Clicca per registrare", icon_size="2x")
-        if audio_bytes:
+        audio_bytes = audio_recorder(text="Clicca per registrare", icon_size="2x", key="recorder")
+        
+        # Gestione audio senza blocco/loop infinito
+        if audio_bytes and st.session_state.get('ultimo_audio') != audio_bytes:
+            st.session_state['ultimo_audio'] = audio_bytes
             with st.spinner("🎧 Trascrizione vocale in corso..."):
                 try:
                     resp_audio = client.models.generate_content(
@@ -116,9 +118,10 @@ with col_sinistra:
         file_appunti_up = st.file_uploader("📂 Carica file .txt per gli appunti:", type=["txt"], key="up_appunti")
         if file_appunti_up is not None:
             testo_caricato = file_appunti_up.read().decode("utf-8", errors="ignore")
-            st.session_state['appunti_voce_o_file'] = testo_caricato
-            st.toast("✅ File caricato negli appunti!", icon="📂")
-            st.rerun()
+            if st.session_state.get('appunti_voce_o_file') != testo_caricato:
+                st.session_state['appunti_voce_o_file'] = testo_caricato
+                st.toast("✅ File caricato negli appunti!", icon="📂")
+                st.rerun()
 
         capitolo_corrente = st.number_input("📌 Numero Capitolo Corrente:", min_value=1, value=1, step=1)
 
@@ -135,17 +138,17 @@ with col_sinistra:
                                 if ricordi_passati:
                                     info_p += "RICORDI PASSATI:\n" + "\n".join(ricordi_passati) + "\n"
                         
-                        prompt = f"Sei MOCC_IA, uno scrittore professionista.\nStai scrivendo per il Capitolo {capitolo_corrente}.\n{info_p}\nAppunti: {appunti}\nScrivi direttamente la scena in modo fluido ed emozionante."
+                        prompt = f"Sei MOCC_IA, uno scrittore professionista di romanzi.\nStai scrivendo per il Capitolo {capitolo_corrente}.\n{info_p}\nAppunti: {appunti}\nScrivi direttamente la scena in italiano in modo lungo, ricco di dettagli ed emozionante."
                         
-                        # Chiamata pulita a Gemini senza warning
-                        chat = client.chats.create(model='gemini-3.8-flash')
-                        response = chat.send_message(prompt)
-                        
+                        response = client.models.generate_content(
+                            model='gemini-3.8-flash',
+                            contents=prompt
+                        )
                         st.session_state['scena_generata'] = response.text
                         st.toast("✨ Scena generata con successo!", icon="🎬")
                         st.rerun()
                     except Exception as e:
-                        st.error(f"Errore: {e}")
+                        st.error(f"Errore generazione: {e}")
             else:
                 st.warning("Inserisci prima gli appunti!")
 
@@ -160,8 +163,8 @@ with col_sinistra:
 
         st.divider()
         st.subheader("💾 Salva la Scena")
-        titolo_scena = st.text_input("Titolo della Scena:", placeholder="Es: Il litigio a Ponte Milvio")
-        nuovo_fatto = st.text_input("Evento da salvare nella memoria dei personaggi:", placeholder="Es: Marco scopre che Elena parte")
+        titolo_scena = st.text_input("Titolo della Scena:", placeholder="Es: Il tramonto a Ponte Milvio")
+        nuovo_fatto = st.text_input("Evento da salvare nella memoria dei personaggi:", placeholder="Es: Marta e Giovanni ricordano il lucchetto")
 
         if st.button("📁 SALVA SCENA NELL'ARCHIVIO", use_container_width=True):
             if scena_finale and titolo_scena:
@@ -205,8 +208,10 @@ with col_destra:
             with st.spinner("Luce sta analizzando..."):
                 try:
                     prompt_l = f"Sei Luce, un'esperta editor narrativa. Rispondi in modo pratico.\nFile allegato: {testo_file_luce}\nDomanda: {domanda_luce}"
-                    chat_luce = client.chats.create(model='gemini-3.8-flash')
-                    resp_l = chat_luce.send_message(prompt_l)
+                    resp_l = client.models.generate_content(
+                        model='gemini-3.8-flash',
+                        contents=prompt_l
+                    )
                     st.info(f"**Luce:** {resp_l.text}")
                 except Exception as e:
                     st.error(f"Errore: {e}")
