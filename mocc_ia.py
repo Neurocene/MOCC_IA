@@ -31,6 +31,7 @@ client = genai.Client(api_key=API_KEY)
 
 st.set_page_config(page_title="MOCCIA.IA", page_icon="📚", layout="wide")
 
+# CSS Personalizzato: Fondino sotto il microfono + Icona Bianco/Rosso
 st.markdown("""
     <style>
     .scena-evidenziata {
@@ -56,6 +57,15 @@ st.markdown("""
         background-color: #ffffff;
         margin: 35px 0;
         box-shadow: 0px 0px 8px rgba(255, 255, 255, 0.8);
+    }
+    
+    /* 🎙️ Fondino circolare per evidenziare l'icona del microfono */
+    iframe[title="audio_recorder_streamlit.audio_recorder"] {
+        background-color: #2b2b2b !important;
+        padding: 6px 12px;
+        border-radius: 20px;
+        border: 1px solid #444444;
+        box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.3);
     }
     </style>
 """, unsafe_allow_html=True)
@@ -110,7 +120,13 @@ with col_pensieri:
     st.session_state['appunti_temp'] = appunti
 
     st.write("🎙️ **Registra Vocale per i Pensieri:**")
-    audio_bytes_appunti = audio_recorder(text="Clicca l'icona per registrare/fermare", icon_size="2x", key="rec_appunti")
+    audio_bytes_appunti = audio_recorder(
+        text="Clicca per registrare/fermare", 
+        icon_size="2x", 
+        neutral_color="#FFFFFF",
+        recording_color="#FF0000",
+        key="rec_appunti"
+    )
     
     if audio_bytes_appunti:
         col_btn_a1, col_btn_a2 = st.columns(2)
@@ -232,8 +248,14 @@ with col_luce:
 
     domanda_luce = st.text_area("Chiedi un consiglio o come andare avanti a Luce:", placeholder="Es: Analizza la coerenza complessiva del libro o dammi idee per i prossimi capitoli", height=100)
     
-    st.write("🎙️ **Parla a voce con Luce:**")
-    audio_bytes_luce = audio_recorder(text="Clicca per registrare la domanda", icon_size="2x", key="rec_luce")
+    st.write("🎙️️ **Parla a voce con Luce:**")
+    audio_bytes_luce = audio_recorder(
+        text="Clicca per registrare la domanda", 
+        icon_size="2x", 
+        neutral_color="#FFFFFF",
+        recording_color="#FF0000",
+        key="rec_luce"
+    )
     
     testo_voce_luce = st.session_state.get('testo_voce_luce_temp', '')
     
