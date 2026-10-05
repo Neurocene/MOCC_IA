@@ -85,19 +85,19 @@ with col_sinistra:
     col_appunti, col_generata = st.columns(2, gap="medium")
     
     with col_appunti:
-        st.subheader("1. I Tuoi Appunti")
+        st.subheader("1. I pensieri di Federico")
         
         testo_voce_o_file = st.session_state.get('appunti_voce_o_file', '')
         
         appunti = st.text_area(
-            "Scrivi o modifica gli appunti:",
+            "Scrivi o modifica i tuoi pensieri:",
             value=testo_voce_o_file,
             height=240,
             placeholder="Es: Marta e Giovanni si incontrano a Ponte Milvio..."
         )
         st.session_state['appunti_temp'] = appunti
 
-        st.write("🎙️️ **Registra Vocale per Appunti:**")
+        st.write("🎙️ **Registra Vocale per i Pensieri:**")
         audio_bytes_appunti = audio_recorder(text="Clicca l'icona per registrare/fermare", icon_size="2x", key="rec_appunti")
         
         if audio_bytes_appunti:
@@ -111,22 +111,22 @@ with col_sinistra:
                                 contents=["Trascrivi fedelmente questo audio in italiano:", genai.types.Part.from_bytes(data=audio_bytes_appunti, mime_type="audio/wav")]
                             )
                             st.session_state['appunti_voce_o_file'] = resp_audio.text
-                            st.toast("✅ Vocale trascritto!", icon="🎙️")
+                            st.toast("✅ Vocale trascritto nei pensieri!", icon="🎙️")
                             st.rerun()
                         except Exception as e:
                             st.error(f"Errore audio: {e}")
             with col_btn_a2:
-                if st.button("🗑️️ CANCELLA AUDIO", use_container_width=True, key="btn_del_appunti"):
+                if st.button("🗑️ CANCELLA AUDIO", use_container_width=True, key="btn_del_appunti"):
                     st.session_state['appunti_voce_o_file'] = ""
                     st.toast("🗑️ Audio cancellato!", icon="🧹")
                     st.rerun()
 
-        file_appunti_up = st.file_uploader("📂 Carica file .txt per gli appunti:", type=["txt"], key="up_appunti")
+        file_appunti_up = st.file_uploader("📂 Carica file .txt con i pensieri:", type=["txt"], key="up_appunti")
         if file_appunti_up is not None:
             testo_caricato = file_appunti_up.read().decode("utf-8", errors="ignore")
             if st.session_state.get('appunti_voce_o_file') != testo_caricato:
                 st.session_state['appunti_voce_o_file'] = testo_caricato
-                st.toast("✅ File caricato negli appunti!", icon="📂")
+                st.toast("✅ File caricato con successo nei pensieri di Federico!", icon="📂")
                 st.rerun()
 
         capitolo_corrente = st.number_input("📌 Numero Capitolo Corrente:", min_value=1, value=1, step=1)
@@ -144,7 +144,7 @@ with col_sinistra:
                                 if ricordi_passati:
                                     info_p += "RICORDI PASSATI:\n" + "\n".join(ricordi_passati) + "\n"
                         
-                        prompt = f"Sei MOCCIA.IA, uno scrittore professionista di romanzi.\nStai scrivendo per il Capitolo {capitolo_corrente}.\n{info_p}\nAppunti: {appunti}\nScrivi direttamente la scena in italiano in modo lungo, ricco di dettagli ed emozionante."
+                        prompt = f"Sei MOCCIA.IA, uno scrittore professionista di romanzi.\nStai scrivendo per il Capitolo {capitolo_corrente}.\n{info_p}\nPensieri di Federico: {appunti}\nScrivi direttamente la scena in italiano in modo lungo, ricco di dettagli ed emozionante."
                         
                         response = client.models.generate_content(
                             model='gemini-3.8-flash',
@@ -156,7 +156,7 @@ with col_sinistra:
                     except Exception as e:
                         st.error(f"Errore generazione: {e}")
             else:
-                st.warning("Inserisci prima gli appunti!")
+                st.warning("Inserisci prima i pensieri di Federico!")
 
     with col_generata:
         st.subheader("2. La Scena Generata")
@@ -202,12 +202,25 @@ with col_sinistra:
 with col_destra:
     st.header("💡 LUCE - EDITOR NARRATIVO")
     
-    file_luce = st.file_uploader("📂 Invia un file .txt a Luce:", type=["txt"], key="up_luce")
+    # --- Selezione Scene Salvate per Luce ---
+    opzioni_scene = ["Nessuna scena selezionata"] + list(st.session_state["scene_salvate"].keys())
+    scena_scelta_luce = st.selectbox("📖 Seleziona una scena salvata da analizzare:", opzioni_scene)
+    
+    testo_scena_selezionata = ""
+    if scena_scelta_luce != "Nessuna scena selezionata":
+        dati_s = st.session_state["scene_salvate"][scena_scelta_luce]
+        testo_scena_selezionata = f"\n--- SCENA SELEZIONATA ('{scena_scelta_luce}' - Cap {dati_s['capitolo']}) ---\n{dati_s['testo']}\n"
+
+    # --- Upload File txt per Luce ---
+    file_luce = st.file_uploader("📂 Invia un file .txt esterno a Luce:", type=["txt"], key="up_luce")
     testo_file_luce = ""
     if file_luce is not None:
         testo_file_luce = file_luce.read().decode("utf-8", errors="ignore")
+        if st.session_state.get('last_luce_file') != file_luce.name:
+            st.session_state['last_luce_file'] = file_luce.name
+            st.toast("✅ File caricato con successo per Luce!", icon="💡")
 
-    domanda_luce = st.text_area("Chiedi un consiglio a Luce:", placeholder="Es: Come impostare meglio i dialoghi?", height=80)
+    domanda_luce = st.text_area("Chiedi un consiglio o come andare avanti a Luce:", placeholder="Es: Come posso far proseguire questa scena?", height=80)
     
     st.write("🎙️ **Parla a voce con Luce:**")
     audio_bytes_luce = audio_recorder(text="Clicca per registrare la domanda", icon_size="2x", key="rec_luce")
@@ -237,10 +250,16 @@ with col_destra:
 
     if st.button("💬 PARLA CON LUCE", use_container_width=True, type="primary"):
         testo_completo_domanda = domanda_luce + ("\n" + testo_voce_luce if testo_voce_luce else "")
-        if testo_completo_domanda or testo_file_luce:
+        if testo_completo_domanda or testo_file_luce or testo_scena_selezionata:
             with st.spinner("Luce sta analizzando..."):
                 try:
-                    prompt_l = f"Sei Luce, un'esperta editor narrativa. Rispondi in modo pratico.\nFile allegato: {testo_file_luce}\nDomanda dello scrittore: {testo_completo_domanda}"
+                    prompt_l = f"""Sei Luce, un'esperta editor narrativa e consulente per scrittori.
+Il tuo compito è analizzare i testi forniti e dare suggerimenti pratici, idee creative e sviluppi narrativi per proseguire la storia.
+
+{testo_scena_selezionata}
+File allegato: {testo_file_luce}
+Domanda dello scrittore: {testo_completo_domanda}"""
+
                     resp_l = client.models.generate_content(
                         model='gemini-3.8-flash',
                         contents=prompt_l
@@ -248,6 +267,8 @@ with col_destra:
                     st.info(f"**Luce:** {resp_l.text}")
                 except Exception as e:
                     st.error(f"Errore: {e}")
+        else:
+            st.warning("Seleziona una scena, carica un file o scrivi una domanda per Luce!")
 
     st.divider()
 
@@ -258,6 +279,9 @@ with col_destra:
         file_p = st.file_uploader("📂 Carica file .txt profilo:", type=["txt"], key="file_p_up")
         if file_p is not None:
             desc_p += "\n" + file_p.read().decode("utf-8", errors="ignore")
+            if st.session_state.get('last_p_file') != file_p.name:
+                st.session_state['last_p_file'] = file_p.name
+                st.toast("✅ Profilo personaggio caricato da file!", icon="👤")
         
         if st.button("💾 Salva Personaggio", use_container_width=True):
             if nome_p:
