@@ -139,8 +139,6 @@ with col_sinistra:
                 st.toast("✅ File caricato con successo nei pensieri di Federico!", icon="📂")
                 st.rerun()
 
-        capitolo_corrente = st.number_input("📌 Numero Capitolo Corrente:", min_value=1, value=1, step=1, key="cap_gen")
-
         st.write("")
         if st.button("🚀 TRASFORMA IN SCENA CON MOCCIA.IA", type="primary", use_container_width=True):
             if appunti:
@@ -150,11 +148,11 @@ with col_sinistra:
                         for nome, data in st.session_state["personaggi"].items():
                             if nome.lower() in appunti.lower():
                                 info_p += f"\n--- PROFILO {nome.upper()} ---\nPROFILO: {data['profilo']}\n"
-                                ricordi_passati = [f"NEL CAP {k}: {v}" for k, v in data.get("ricordi", {}).items() if int(k) < capitolo_corrente]
+                                ricordi_passati = [f"NEL CAP {k}: {v}" for k, v in data.get("ricordi", {}).items()]
                                 if ricordi_passati:
                                     info_p += "RICORDI PASSATI:\n" + "\n".join(ricordi_passati) + "\n"
                         
-                        prompt = f"Sei MOCCIA.IA, uno scrittore professionista di romanzi.\nStai scrivendo per il Capitolo {capitolo_corrente}.\n{info_p}\nPensieri di Federico: {appunti}\nScrivi direttamente la scena in italiano in modo lungo, ricco di dettagli ed emozionante."
+                        prompt = f"Sei MOCCIA.IA, uno scrittore professionista di romanzi.\n{info_p}\nPensieri di Federico: {appunti}\nScrivi direttamente la scena in italiano in modo lungo, ricco di dettagli ed emozionante."
                         
                         response = client.models.generate_content(
                             model='gemini-3.8-flash',
@@ -180,7 +178,7 @@ with col_sinistra:
         st.divider()
         st.subheader("💾 Salva la Scena")
         titolo_scena = st.text_input("Titolo della Scena:", placeholder="Es: Il tramonto a Ponte Milvio")
-        num_capitolo_salva = st.number_input("Numero capitolo:", min_value=1, value=int(capitolo_corrente), step=1, key="cap_salva")
+        num_capitolo_salva = st.number_input("Numero capitolo:", min_value=1, value=1, step=1, key="cap_salva")
 
         if st.button("📁 SALVA SCENA NELL'ARCHIVIO", use_container_width=True, type="primary"):
             if scena_finale and titolo_scena:
@@ -347,35 +345,4 @@ Domanda dello scrittore: {testo_completo_domanda}"""
             with st.expander(f"👤 {nome}"):
                 st.caption(f"**PROFILO:** {info['profilo']}")
                 st.caption("**RICORDI:**")
-                for k, v in info.get("ricordi", {}).items():
-                    st.caption(f"- Cap {k}: {v}")
-
-    st.divider()
-
-    st.header("📚 SCENE SALVATE IN ARCHIVIO")
-    if st.session_state["scene_salvate"]:
-        for tit, dati in st.session_state["scene_salvate"].items():
-            in_lib = dati.get("in_libro", False) or (tit in st.session_state["libro"])
-            
-            if in_lib:
-                st.markdown(f"<div class='scena-libro'>📖 Cap {dati['capitolo']}: {tit} (Nel Libro)</div>", unsafe_allow_html=True)
-            else:
-                st.write(f"📄 **Cap {dati['capitolo']}:** {tit}")
-            
-            with st.expander(f"Leggi '{tit}'"):
-                if dati.get("pensieri_federico"):
-                    st.caption(f"💭 **Pensieri di Federico:** {dati['pensieri_federico']}")
-                    st.divider()
-                st.write(dati["testo"])
-                st.write("")
-                
-                if not in_lib:
-                    if st.button(f"📖 Aggiungi al Libro", key=f"add_lib_{tit}", use_container_width=True):
-                        st.session_state["libro"][tit] = dati
-                        st.session_state["scene_salvate"][tit]["in_libro"] = True
-                        salva_dati(FILE_LIBRO, st.session_state["libro"])
-                        salva_dati(FILE_SCENE, st.session_state["scene_salvate"])
-                        st.toast(f"Aggiunto '{tit}' al Libro e alla memoria di Luce!", icon="📖")
-                        st.rerun()
-    else:
-        st.caption("Nessuna scena ancora salvata.")
+                for k, v in info.get("ricordi", {}).
