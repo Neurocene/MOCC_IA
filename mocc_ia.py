@@ -80,19 +80,17 @@ col_sinistra, col_destra = st.columns([2, 1], gap="large")
 # 📝 COLONNA SINISTRA: SCRITTURA & GENERAZIONE
 # ------------------------------------------
 with col_sinistra:
-    st.header("📝 TAVOLO DA LAVORO SCRITTORE")
-    
     col_appunti, col_generata = st.columns(2, gap="medium")
     
     with col_appunti:
-        st.subheader("1. I pensieri di Federico")
+        st.subheader("💭 1. I pensieri di Federico")
         
         testo_voce_o_file = st.session_state.get('appunti_voce_o_file', '')
         
         appunti = st.text_area(
             "Scrivi o modifica i tuoi pensieri:",
             value=testo_voce_o_file,
-            height=240,
+            height=260,
             placeholder="Es: Marta e Giovanni si incontrano a Ponte Milvio..."
         )
         st.session_state['appunti_temp'] = appunti
@@ -159,11 +157,11 @@ with col_sinistra:
                 st.warning("Inserisci prima i pensieri di Federico!")
 
     with col_generata:
-        st.subheader("2. La Scena Generata")
+        st.subheader("🎬 2. La Scena Generata")
         scena_finale = st.text_area(
             "Testo finale della scena (puoi modificarlo):",
             value=st.session_state.get('scena_generata', ''),
-            height=240
+            height=260
         )
         st.session_state['scena_generata'] = scena_finale
 
