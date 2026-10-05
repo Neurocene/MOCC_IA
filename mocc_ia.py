@@ -49,6 +49,14 @@ st.markdown("""
         font-weight: bold;
         margin-bottom: 6px;
     }
+    /* Barra bianca evidente di separazione */
+    .separatore-bianco {
+        border: none;
+        height: 4px;
+        background-color: #ffffff;
+        margin: 35px 0;
+        box-shadow: 0px 0px 8px rgba(255, 255, 255, 0.8);
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -84,7 +92,7 @@ if "libro" not in st.session_state:
     st.session_state["libro"] = carica_dati(FILE_LIBRO)
 
 # ==========================================
-# 🚀 SEZIONE SUPERIORE: SCRITTURA & GENERAZIONE (LARGHEZZA PIENA)
+# 🚀 SEZIONE SUPERIORE: SCRITTURA & GENERAZIONE
 # ==========================================
 col_pensieri, col_scena = st.columns(2, gap="large")
 
@@ -191,12 +199,15 @@ with col_scena:
         else:
             st.error("Inserisci un titolo e genera prima la scena!")
 
-st.markdown("---")
+# ==========================================
+# ⚪ BARRA BIANCA DI SEPARAZIONE EVIDENTE
+# ==========================================
+st.markdown("<hr class='separatore-bianco'>", unsafe_allow_html=True)
 
 # ==========================================
-# 💡 SEZIONE INFERIORE: LUCE, IL LIBRO, PERSONAGGI & ARCHIVIO
+# 💡 SEZIONE INFERIORE: LUCE & GESTIONE ARCHIVIO/LIBRO/PERSONAGGI
 # ==========================================
-col_luce, col_archivio_libro = st.columns([1, 1], gap="large")
+col_luce, col_destra_inferiore = st.columns([1, 1], gap="large")
 
 # --- COLONNA INFERIORE SINISTRA: LUCE ---
 with col_luce:
@@ -260,7 +271,7 @@ with col_luce:
             with st.spinner("Luce sta analizzando il libro e le informazioni..."):
                 try:
                     prompt_l = f"""Sei Luce, un'esperta editor narrativa e consulente letteraria d'élite per romanzi.
-Haiaccesso completo alla memoria del "LIBRO" (l'insieme dei capitoli ufficialmente approvati) e alle singole scene.
+Hai accesso completo alla memoria del "LIBRO" (l'insieme dei capitoli ufficialmente approvati) e alle singole scene.
 
 IL TUO OBIETTIVO:
 1. Mantenere una visione d'insieme del LIBRO come opera unica, organica e coerente.
@@ -283,8 +294,42 @@ Domanda dello scrittore: {testo_completo_domanda}"""
         else:
             st.warning("Aggiungi scene al libro, carica un file o fai una domanda a Luce!")
 
-# --- COLONNA INFERIORE DESTRA: LIBRO, PERSONAGGI & ARCHIVIO ---
-with col_archivio_libro:
+# --- COLONNA INFERIORE DESTRA: ARCHIVIO -> LIBRO -> PERSONAGGI ---
+with col_destra_inferiore:
+    # 1. ARCHIVIO SCENE
+    st.header("📚 ARCHIVIO SCENE SALVATE")
+    if st.session_state["scene_salvate"]:
+        for tit, dati in st.session_state["scene_salvate"].items():
+            in_lib = dati.get("in_libro", False) or (tit in st.session_state["libro"])
+            
+            if in_lib:
+                st.markdown(f"<div class='scena-libro'>📖 Cap {dati['capitolo']}: {tit} (Nel Libro)</div>", unsafe_allow_html=True)
+            elif dati.get("evidenziata", False):
+                st.markdown(f"<div class='scena-evidenziata'>🟨 Cap {dati['capitolo']}: {tit} (In Memoria)</div>", unsafe_allow_html=True)
+            else:
+                st.write(f"📄 **Cap {dati['capitolo']}:** {tit}")
+            
+            with st.expander(f"Leggi '{tit}'"):
+                if dati.get("pensieri_federico"):
+                    st.caption(f"💭 **Pensieri di Federico:** {dati['pensieri_federico']}")
+                    st.divider()
+                st.write(dati["testo"])
+                st.write("")
+                
+                if not in_lib:
+                    if st.button(f"📖 Aggiungi al Libro", key=f"add_lib_{tit}", use_container_width=True):
+                        st.session_state["libro"][tit] = dati
+                        st.session_state["scene_salvate"][tit]["in_libro"] = True
+                        salva_dati(FILE_LIBRO, st.session_state["libro"])
+                        salva_dati(FILE_SCENE, st.session_state["scene_salvate"])
+                        st.toast(f"Aggiunto '{tit}' al Libro e alla memoria di Luce!", icon="📖")
+                        st.rerun()
+    else:
+        st.caption("Nessuna scena ancora salvata nell'archivio.")
+
+    st.divider()
+
+    # 2. IL LIBRO
     st.header("📖 IL LIBRO")
     if st.session_state["libro"]:
         st.caption(f"Contiene **{len(st.session_state['libro'])}** scene che formano l'opera unica.")
@@ -308,10 +353,11 @@ with col_archivio_libro:
                     st.toast(f"Rimosso '{tit}' dal Libro", icon="🗑️")
                     st.rerun()
     else:
-        st.caption("Nessuna scena inserita nel Libro. Aggiungi le scene dall'Archivio sottostante.")
+        st.caption("Nessuna scena inserita nel Libro. Aggiungi le scene dall'Archivio sovrastante.")
 
     st.divider()
 
+    # 3. GESTIONE PERSONAGGI
     st.header("🎭 GESTIONE PERSONAGGI")
     with st.expander("➕ Aggiungi / Modifica Personaggio"):
         nome_p = st.text_input("Nome Personaggio:")
@@ -340,35 +386,3 @@ with col_archivio_libro:
                 st.caption("**RICORDI:**")
                 for k, v in info.get("ricordi", {}).items():
                     st.caption(f"- Cap {k}: {v}")
-
-    st.divider()
-
-    st.header("📚 SCENE SALVATE IN ARCHIVIO")
-    if st.session_state["scene_salvate"]:
-        for tit, dati in st.session_state["scene_salvate"].items():
-            in_lib = dati.get("in_libro", False) or (tit in st.session_state["libro"])
-            
-            if in_lib:
-                st.markdown(f"<div class='scena-libro'>📖 Cap {dati['capitolo']}: {tit} (Nel Libro)</div>", unsafe_allow_html=True)
-            elif dati.get("evidenziata", False):
-                st.markdown(f"<div class='scena-evidenziata'>🟨 Cap {dati['capitolo']}: {tit} (In Memoria)</div>", unsafe_allow_html=True)
-            else:
-                st.write(f"📄 **Cap {dati['capitolo']}:** {tit}")
-            
-            with st.expander(f"Leggi '{tit}'"):
-                if dati.get("pensieri_federico"):
-                    st.caption(f"💭 **Pensieri di Federico:** {dati['pensieri_federico']}")
-                    st.divider()
-                st.write(dati["testo"])
-                st.write("")
-                
-                if not in_lib:
-                    if st.button(f"📖 Aggiungi al Libro", key=f"add_lib_{tit}", use_container_width=True):
-                        st.session_state["libro"][tit] = dati
-                        st.session_state["scene_salvate"][tit]["in_libro"] = True
-                        salva_dati(FILE_LIBRO, st.session_state["libro"])
-                        salva_dati(FILE_SCENE, st.session_state["scene_salvate"])
-                        st.toast(f"Aggiunto '{tit}' al Libro e alla memoria di Luce!", icon="📖")
-                        st.rerun()
-    else:
-        st.caption("Nessuna scena ancora salvata.")
