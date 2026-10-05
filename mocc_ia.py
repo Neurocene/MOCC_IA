@@ -175,21 +175,24 @@ with col_sinistra:
         if st.button("📁 SALVA SCENA NELL'ARCHIVIO", use_container_width=True):
             if scena_finale and titolo_scena:
                 in_memoria = False
+                pensieri_attuali = st.session_state.get('appunti_temp', '')
+                
                 if nuovo_fatto:
                     in_memoria = True
                     for nome in st.session_state["personaggi"]:
-                        if nome.lower() in scena_finale.lower() or nome.lower() in st.session_state.get('appunti_temp', '').lower():
+                        if nome.lower() in scena_finale.lower() or nome.lower() in pensieri_attuali.lower():
                             st.session_state["personaggi"][nome]["ricordi"][str(capitolo_corrente)] = f"[{titolo_scena}] {nuovo_fatto}"
                     salva_dati(FILE_PERSONAGGI, st.session_state["personaggi"])
 
                 st.session_state["scene_salvate"][titolo_scena] = {
                     "capitolo": capitolo_corrente,
+                    "pensieri_federico": pensieri_attuali,
                     "testo": scena_finale,
                     "evidenziata": in_memoria
                 }
                 salva_dati(FILE_SCENE, st.session_state["scene_salvate"])
                 
-                st.toast(f"🎉 Scena '{titolo_scena}' salvata con successo!", icon="💾")
+                st.toast(f"🎉 Scena '{titolo_scena}' salvata con successo con i pensieri collegati!", icon="💾")
                 if in_memoria:
                     st.toast("🧠 Ricordo aggiunto alla memoria dei personaggi!", icon="🟨")
                 st.rerun()
@@ -209,7 +212,8 @@ with col_destra:
     testo_scena_selezionata = ""
     if scena_scelta_luce != "Nessuna scena selezionata":
         dati_s = st.session_state["scene_salvate"][scena_scelta_luce]
-        testo_scena_selezionata = f"\n--- SCENA SELEZIONATA ('{scena_scelta_luce}' - Cap {dati_s['capitolo']}) ---\n{dati_s['testo']}\n"
+        pensieri_collegati = dati_s.get("pensieri_federico", "Nessun pensiero specificato.")
+        testo_scena_selezionata = f"\n--- SCENA SELEZIONATA ('{scena_scelta_luce}' - Cap {dati_s['capitolo']}) ---\nPENSIERI DI FEDERICO COLLEGATI:\n{pensieri_collegati}\n\nTESTO SCENA:\n{dati_s['testo']}\n"
 
     # --- Upload File txt per Luce ---
     file_luce = st.file_uploader("📂 Invia un file .txt esterno a Luce:", type=["txt"], key="up_luce")
@@ -254,7 +258,7 @@ with col_destra:
             with st.spinner("Luce sta analizzando..."):
                 try:
                     prompt_l = f"""Sei Luce, un'esperta editor narrativa e consulente per scrittori.
-Il tuo compito è analizzare i testi forniti e dare suggerimenti pratici, idee creative e sviluppi narrativi per proseguire la storia.
+Il tuo compito è analizzare i testi forniti (inclusi i pensieri dell'autore e la scena generata) e dare suggerimenti pratici, idee creative e sviluppi narrativi per proseguire la storia.
 
 {testo_scena_selezionata}
 File allegato: {testo_file_luce}
@@ -311,6 +315,9 @@ Domanda dello scrittore: {testo_completo_domanda}"""
             else:
                 st.write(f"📄 **Cap {dati['capitolo']}:** {tit}")
             with st.expander(f"Leggi '{tit}'"):
+                if dati.get("pensieri_federico"):
+                    st.caption(f"💭 **Pensieri di Federico:** {dati['pensieri_federico']}")
+                    st.divider()
                 st.write(dati["testo"])
     else:
         st.caption("Nessuna scena ancora salvata.")
