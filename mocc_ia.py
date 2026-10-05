@@ -345,4 +345,37 @@ Domanda dello scrittore: {testo_completo_domanda}"""
             with st.expander(f"👤 {nome}"):
                 st.caption(f"**PROFILO:** {info['profilo']}")
                 st.caption("**RICORDI:**")
-                for k, v in info.get("ricordi", {}).
+                for k, v in info.get("ricordi", {}).items():
+                    st.caption(f"- Cap {k}: {v}")
+
+    st.divider()
+
+    st.header("📚 SCENE SALVATE IN ARCHIVIO")
+    if st.session_state["scene_salvate"]:
+        for tit, dati in st.session_state["scene_salvate"].items():
+            in_lib = dati.get("in_libro", False) or (tit in st.session_state["libro"])
+            
+            if in_lib:
+                st.markdown(f"<div class='scena-libro'>📖 Cap {dati['capitolo']}: {tit} (Nel Libro)</div>", unsafe_allow_html=True)
+            elif dati.get("evidenziata", False):
+                st.markdown(f"<div class='scena-evidenziata'>🟨 Cap {dati['capitolo']}: {tit} (In Memoria)</div>", unsafe_allow_html=True)
+            else:
+                st.write(f"📄 **Cap {dati['capitolo']}:** {tit}")
+            
+            with st.expander(f"Leggi '{tit}'"):
+                if dati.get("pensieri_federico"):
+                    st.caption(f"💭 **Pensieri di Federico:** {dati['pensieri_federico']}")
+                    st.divider()
+                st.write(dati["testo"])
+                st.write("")
+                
+                if not in_lib:
+                    if st.button(f"📖 Aggiungi al Libro", key=f"add_lib_{tit}", use_container_width=True):
+                        st.session_state["libro"][tit] = dati
+                        st.session_state["scene_salvate"][tit]["in_libro"] = True
+                        salva_dati(FILE_LIBRO, st.session_state["libro"])
+                        salva_dati(FILE_SCENE, st.session_state["scene_salvate"])
+                        st.toast(f"Aggiunto '{tit}' al Libro e alla memoria di Luce!", icon="📖")
+                        st.rerun()
+    else:
+        st.caption("Nessuna scena ancora salvata.")
