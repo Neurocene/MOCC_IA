@@ -13,7 +13,7 @@ if "autenticato" not in st.session_state:
     st.session_state["autenticato"] = False
 
 if not st.session_state["autenticato"]:
-    st.title("🔒 ACCESSO RISERVATO - MOCC_IA")
+    st.title("🔒 ACCESSO RISERVATO - MOCCIA.IA")
     pass_inserita = st.text_input("Inserisci la password segreta per accedere:", type="password")
     if st.button("Sblocca App"):
         if pass_inserita == PASSWORD_SEGRETA:
@@ -29,7 +29,7 @@ if not st.session_state["autenticato"]:
 API_KEY = st.secrets.get("GEMINI_API_KEY", "AQ.Ab8RN6IWDCL_EFVyjE48i1A69svIGS6WMHNoQXrM6vl4bEvt_Q")
 client = genai.Client(api_key=API_KEY)
 
-st.set_page_config(page_title="MOCC_IA", page_icon="📚", layout="wide")
+st.set_page_config(page_title="MOCCIA.IA", page_icon="📚", layout="wide")
 
 st.markdown("""
     <style>
@@ -44,7 +44,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🎬 MOCC_IA")
+st.title("🎬 MOCCIA.IA")
 
 # ==========================================
 # 💾 CARICAMENTO E SALVATAGGIO DATI
@@ -97,7 +97,7 @@ with col_sinistra:
         )
         st.session_state['appunti_temp'] = appunti
 
-        st.write("🎙️ **Registra Vocale per Appunti:**")
+        st.write("🎙️️ **Registra Vocale per Appunti:**")
         audio_bytes_appunti = audio_recorder(text="Clicca l'icona per registrare/fermare", icon_size="2x", key="rec_appunti")
         
         if audio_bytes_appunti:
@@ -116,7 +116,7 @@ with col_sinistra:
                         except Exception as e:
                             st.error(f"Errore audio: {e}")
             with col_btn_a2:
-                if st.button("🗑️ CANCELLA AUDIO", use_container_width=True, key="btn_del_appunti"):
+                if st.button("🗑️️ CANCELLA AUDIO", use_container_width=True, key="btn_del_appunti"):
                     st.session_state['appunti_voce_o_file'] = ""
                     st.toast("🗑️ Audio cancellato!", icon="🧹")
                     st.rerun()
@@ -132,9 +132,9 @@ with col_sinistra:
         capitolo_corrente = st.number_input("📌 Numero Capitolo Corrente:", min_value=1, value=1, step=1)
 
         st.write("")
-        if st.button("🚀 TRASFORMA IN SCENA CON MOCC_IA", type="primary", use_container_width=True):
+        if st.button("🚀 TRASFORMA IN SCENA CON MOCCIA.IA", type="primary", use_container_width=True):
             if appunti:
-                with st.spinner("🤖 MOCC_IA sta elaborando la scena..."):
+                with st.spinner("🤖 MOCCIA.IA sta elaborando la scena..."):
                     try:
                         info_p = ""
                         for nome, data in st.session_state["personaggi"].items():
@@ -144,7 +144,7 @@ with col_sinistra:
                                 if ricordi_passati:
                                     info_p += "RICORDI PASSATI:\n" + "\n".join(ricordi_passati) + "\n"
                         
-                        prompt = f"Sei MOCC_IA, uno scrittore professionista di romanzi.\nStai scrivendo per il Capitolo {capitolo_corrente}.\n{info_p}\nAppunti: {appunti}\nScrivi direttamente la scena in italiano in modo lungo, ricco di dettagli ed emozionante."
+                        prompt = f"Sei MOCCIA.IA, uno scrittore professionista di romanzi.\nStai scrivendo per il Capitolo {capitolo_corrente}.\n{info_p}\nAppunti: {appunti}\nScrivi direttamente la scena in italiano in modo lungo, ricco di dettagli ed emozionante."
                         
                         response = client.models.generate_content(
                             model='gemini-3.8-flash',
