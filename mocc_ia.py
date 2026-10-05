@@ -31,7 +31,7 @@ client = genai.Client(api_key=API_KEY)
 
 st.set_page_config(page_title="MOCCIA.IA", page_icon="📚", layout="wide")
 
-# CSS Personalizzato: Fondino sotto il microfono + Icona Bianco/Rosso
+# CSS Personalizzato con FIX per centraggio e visibilità microfono
 st.markdown("""
     <style>
     .scena-evidenziata {
@@ -59,13 +59,17 @@ st.markdown("""
         box-shadow: 0px 0px 8px rgba(255, 255, 255, 0.8);
     }
     
-    /* 🎙️ Fondino circolare per evidenziare l'icona del microfono */
+    /* 🎙️️ Fix per centrare il microfono e renderlo interamente visibile */
     iframe[title="audio_recorder_streamlit.audio_recorder"] {
         background-color: #2b2b2b !important;
-        padding: 6px 12px;
-        border-radius: 20px;
-        border: 1px solid #444444;
-        box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.3);
+        padding: 8px 16px !important;
+        border-radius: 20px !important;
+        border: 1px solid #444444 !important;
+        box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.3) !important;
+        height: auto !important;
+        min-height: 45px !important;
+        display: block !important;
+        margin: 10px auto !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -248,7 +252,7 @@ with col_luce:
 
     domanda_luce = st.text_area("Chiedi un consiglio o come andare avanti a Luce:", placeholder="Es: Analizza la coerenza complessiva del libro o dammi idee per i prossimi capitoli", height=100)
     
-    st.write("🎙️️ **Parla a voce con Luce:**")
+    st.write("🎙️ **Parla a voce con Luce:**")
     audio_bytes_luce = audio_recorder(
         text="Clicca per registrare la domanda", 
         icon_size="2x", 
@@ -372,7 +376,7 @@ with col_destra_inferiore:
                         st.session_state["scene_salvate"][tit]["in_libro"] = False
                     salva_dati(FILE_LIBRO, st.session_state["libro"])
                     salva_dati(FILE_SCENE, st.session_state["scene_salvate"])
-                    st.toast(f"Rimosso '{tit}' dal Libro", icon="🗑️")
+                    st.toast(f"Rimosso '{tit}' dal Libro", icon="🗑️️")
                     st.rerun()
     else:
         st.caption("Nessuna scena inserita nel Libro. Aggiungi le scene dall'Archivio sovrastante.")
