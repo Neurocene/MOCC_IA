@@ -139,7 +139,7 @@ with col_sinistra:
                 st.toast("✅ File caricato con successo nei pensieri di Federico!", icon="📂")
                 st.rerun()
 
-        capitolo_corrente = st.number_input("📌 Numero Capitolo Corrente:", min_value=1, value=1, step=1)
+        capitolo_corrente = st.number_input("📌 Numero Capitolo Corrente:", min_value=1, value=1, step=1, key="cap_gen")
 
         st.write("")
         if st.button("🚀 TRASFORMA IN SCENA CON MOCCIA.IA", type="primary", use_container_width=True):
@@ -180,32 +180,21 @@ with col_sinistra:
         st.divider()
         st.subheader("💾 Salva la Scena")
         titolo_scena = st.text_input("Titolo della Scena:", placeholder="Es: Il tramonto a Ponte Milvio")
-        nuovo_fatto = st.text_input("Evento da salvare nella memoria dei personaggi:", placeholder="Es: Marta e Giovanni ricordano il lucchetto")
+        num_capitolo_salva = st.number_input("Numero capitolo:", min_value=1, value=int(capitolo_corrente), step=1, key="cap_salva")
 
-        if st.button("📁 SALVA SCENA NELL'ARCHIVIO", use_container_width=True):
+        if st.button("📁 SALVA SCENA NELL'ARCHIVIO", use_container_width=True, type="primary"):
             if scena_finale and titolo_scena:
-                in_memoria = False
                 pensieri_attuali = st.session_state.get('appunti_temp', '')
                 
-                if nuovo_fatto:
-                    in_memoria = True
-                    for nome in st.session_state["personaggi"]:
-                        if nome.lower() in scena_finale.lower() or nome.lower() in pensieri_attuali.lower():
-                            st.session_state["personaggi"][nome]["ricordi"][str(capitolo_corrente)] = f"[{titolo_scena}] {nuovo_fatto}"
-                    salva_dati(FILE_PERSONAGGI, st.session_state["personaggi"])
-
                 st.session_state["scene_salvate"][titolo_scena] = {
-                    "capitolo": capitolo_corrente,
+                    "capitolo": num_capitolo_salva,
                     "pensieri_federico": pensieri_attuali,
                     "testo": scena_finale,
-                    "evidenziata": in_memoria,
                     "in_libro": False
                 }
                 salva_dati(FILE_SCENE, st.session_state["scene_salvate"])
                 
-                st.toast(f"🎉 Scena '{titolo_scena}' salvata con successo con i pensieri collegati!", icon="💾")
-                if in_memoria:
-                    st.toast("🧠 Ricordo aggiunto alla memoria dei personaggi!", icon="🟨")
+                st.toast(f"🎉 Scena '{titolo_scena}' salvata con successo per il Capitolo {num_capitolo_salva}!", icon="💾")
                 st.rerun()
             else:
                 st.error("Inserisci un titolo e genera prima la scena!")
@@ -267,7 +256,6 @@ with col_destra:
     testo_libro_completo = ""
     if st.session_state["libro"]:
         testo_libro_completo = "\n=== MEMORIA DEL LIBRO (SCENE INSERITE NELLA NARRATIVA UNICA) ===\n"
-        # Ordina per numero di capitolo
         scene_ordinate = sorted(st.session_state["libro"].items(), key=lambda x: x[1].get("capitolo", 0))
         for tit, d in scene_ordinate:
             testo_libro_completo += f"\n--- CAPITOLO {d['capitolo']}: {tit} ---\nPENSIERI ORIGINALI DI FEDERICO:\n{d.get('pensieri_federico', '')}\n\nTESTO SCENA:\n{d['testo']}\n"
@@ -371,8 +359,6 @@ Domanda dello scrittore: {testo_completo_domanda}"""
             
             if in_lib:
                 st.markdown(f"<div class='scena-libro'>📖 Cap {dati['capitolo']}: {tit} (Nel Libro)</div>", unsafe_allow_html=True)
-            elif dati.get("evidenziata", False):
-                st.markdown(f"<div class='scena-evidenziata'>🟨 Cap {dati['capitolo']}: {tit} (In Memoria)</div>", unsafe_allow_html=True)
             else:
                 st.write(f"📄 **Cap {dati['capitolo']}:** {tit}")
             
