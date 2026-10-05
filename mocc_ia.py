@@ -41,6 +41,14 @@ st.markdown("""
         font-weight: bold;
         margin-bottom: 6px;
     }
+    .scena-libro {
+        background-color: #2ecc71 !important;
+        color: #ffffff !important;
+        padding: 6px 10px;
+        border-radius: 6px;
+        font-weight: bold;
+        margin-bottom: 6px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -51,6 +59,7 @@ st.title("🎬 MOCCIA.IA")
 # ==========================================
 FILE_PERSONAGGI = "personaggi_memoria.json"
 FILE_SCENE = "scene_salvate.json"
+FILE_LIBRO = "libro_capitoli.json"
 
 def carica_dati(filepath):
     if os.path.exists(filepath):
@@ -70,6 +79,9 @@ if "personaggi" not in st.session_state:
 
 if "scene_salvate" not in st.session_state:
     st.session_state["scene_salvate"] = carica_dati(FILE_SCENE)
+
+if "libro" not in st.session_state:
+    st.session_state["libro"] = carica_dati(FILE_LIBRO)
 
 # ==========================================
 # 📐 STRUTTURA A 2 COLONNE PRINCIPALI
@@ -186,7 +198,8 @@ with col_sinistra:
                     "capitolo": capitolo_corrente,
                     "pensieri_federico": pensieri_attuali,
                     "testo": scena_finale,
-                    "evidenziata": in_memoria
+                    "evidenziata": in_memoria,
+                    "in_libro": False
                 }
                 salva_dati(FILE_SCENE, st.session_state["scene_salvate"])
                 
@@ -205,13 +218,13 @@ with col_destra:
     
     # --- Selezione Scene Salvate per Luce ---
     opzioni_scene = ["Nessuna scena selezionata"] + list(st.session_state["scene_salvate"].keys())
-    scena_scelta_luce = st.selectbox("📖 Seleziona una scena salvata da analizzare:", opzioni_scene)
+    scena_scelta_luce = st.selectbox("📖 Seleziona una singola scena da analizzare:", opzioni_scene)
     
     testo_scena_selezionata = ""
     if scena_scelta_luce != "Nessuna scena selezionata":
         dati_s = st.session_state["scene_salvate"][scena_scelta_luce]
         pensieri_collegati = dati_s.get("pensieri_federico", "Nessun pensiero specificato.")
-        testo_scena_selezionata = f"\n--- SCENA SELEZIONATA ('{scena_scelta_luce}' - Cap {dati_s['capitolo']}) ---\nPENSIERI DI FEDERICO COLLEGATI:\n{pensieri_collegati}\n\nTESTO SCENA:\n{dati_s['testo']}\n"
+        testo_scena_selezionata = f"\n--- SCENA SINGOLA SELEZIONATA ('{scena_scelta_luce}' - Cap {dati_s['capitolo']}) ---\nPENSIERI DI FEDERICO:\n{pensieri_collegati}\n\nTESTO SCENA:\n{dati_s['testo']}\n"
 
     # --- Upload File txt per Luce ---
     file_luce = st.file_uploader("📂 Invia un file .txt esterno a Luce:", type=["txt"], key="up_luce")
@@ -222,7 +235,7 @@ with col_destra:
             st.session_state['last_luce_file'] = file_luce.name
             st.toast("✅ File caricato con successo per Luce!", icon="💡")
 
-    domanda_luce = st.text_area("Chiedi un consiglio o come andare avanti a Luce:", placeholder="Es: Come posso far proseguire questa scena?", height=80)
+    domanda_luce = st.text_area("Chiedi un consiglio o come andare avanti a Luce:", placeholder="Es: Analizza la coerenza complessiva del libro o dammi idee per i prossimi capitoli", height=80)
     
     st.write("🎙️ **Parla a voce con Luce:**")
     audio_bytes_luce = audio_recorder(text="Clicca per registrare la domanda", icon_size="2x", key="rec_luce")
@@ -250,14 +263,30 @@ with col_destra:
                 st.toast("🗑️ Audio cancellato!", icon="🧹")
                 st.rerun()
 
+    # --- Costruzione Memoria del Libro per Luce ---
+    testo_libro_completo = ""
+    if st.session_state["libro"]:
+        testo_libro_completo = "\n=== MEMORIA DEL LIBRO (SCENE INSERITE NELLA NARRATIVA UNICA) ===\n"
+        # Ordina per numero di capitolo
+        scene_ordinate = sorted(st.session_state["libro"].items(), key=lambda x: x[1].get("capitolo", 0))
+        for tit, d in scene_ordinate:
+            testo_libro_completo += f"\n--- CAPITOLO {d['capitolo']}: {tit} ---\nPENSIERI ORIGINALI DI FEDERICO:\n{d.get('pensieri_federico', '')}\n\nTESTO SCENA:\n{d['testo']}\n"
+
     if st.button("💬 PARLA CON LUCE", use_container_width=True, type="primary"):
         testo_completo_domanda = domanda_luce + ("\n" + testo_voce_luce if testo_voce_luce else "")
-        if testo_completo_domanda or testo_file_luce or testo_scena_selezionata:
-            with st.spinner("Luce sta analizzando..."):
+        if testo_completo_domanda or testo_file_luce or testo_scena_selezionata or testo_libro_completo:
+            with st.spinner("Luce sta analizzando il libro e le informazioni..."):
                 try:
-                    prompt_l = f"""Sei Luce, un'esperta editor narrativa e consulente per scrittori.
-Il tuo compito è analizzare i testi forniti (inclusi i pensieri dell'autore e la scena generata) e dare suggerimenti pratici, idee creative e sviluppi narrativi per proseguire la storia.
+                    prompt_l = f"""Sei Luce, un'esperta editor narrativa e consulente letteraria d'élite per romanzi.
+Hai accesso completo alla memoria del "LIBRO" (l'insieme dei capitoli ufficialmente approvati) e alle singole scene.
 
+IL TUO OBIETTIVO:
+1. Mantenere una visione d'insieme del LIBRO come opera unica, organica e coerente.
+2. Identificare discrepanze, buchi di trama, anomalie temporali, incongruenze nei personaggi o nei pensieri di Federico.
+3. Proporre correzioni pratiche e concrete per armonizzare il romanzo.
+4. Suggerire idee per i capitoli successivi garantendo continuità e ritmo.
+
+{testo_libro_completo}
 {testo_scena_selezionata}
 File allegato: {testo_file_luce}
 Domanda dello scrittore: {testo_completo_domanda}"""
@@ -270,7 +299,37 @@ Domanda dello scrittore: {testo_completo_domanda}"""
                 except Exception as e:
                     st.error(f"Errore: {e}")
         else:
-            st.warning("Seleziona una scena, carica un file o scrivi una domanda per Luce!")
+            st.warning("Aggiungi scene al libro, carica un file o fai una domanda a Luce!")
+
+    st.divider()
+
+    # ==========================================
+    # 📖 IL LIBRO (MEMORIA DI LUCE)
+    # ==========================================
+    st.header("📖 IL LIBRO")
+    if st.session_state["libro"]:
+        st.caption(f"Contiene **{len(st.session_state['libro'])}** scene che formano l'opera unica.")
+        scene_libro_ord = sorted(st.session_state["libro"].items(), key=lambda x: x[1].get("capitolo", 0))
+        for tit, dati in scene_libro_ord:
+            st.markdown(f"<div class='scena-libro'>📖 Cap {dati['capitolo']}: {tit}</div>", unsafe_allow_html=True)
+            col_b1, col_b2 = st.columns([3, 1])
+            with col_b1:
+                with st.expander(f"Leggi Cap {dati['capitolo']}: {tit}"):
+                    if dati.get("pensieri_federico"):
+                        st.caption(f"💭 **Pensieri di Federico:** {dati['pensieri_federico']}")
+                        st.divider()
+                    st.write(dati["testo"])
+            with col_b2:
+                if st.button("❌ Rimuovi", key=f"rem_lib_{tit}", use_container_width=True):
+                    del st.session_state["libro"][tit]
+                    if tit in st.session_state["scene_salvate"]:
+                        st.session_state["scene_salvate"][tit]["in_libro"] = False
+                    salva_dati(FILE_LIBRO, st.session_state["libro"])
+                    salva_dati(FILE_SCENE, st.session_state["scene_salvate"])
+                    st.toast(f"Rimosso '{tit}' dal Libro", icon="🗑️")
+                    st.rerun()
+    else:
+        st.caption("Nessuna scena inserita nel Libro. Aggiungi le scene dall'Archivio sottostante.")
 
     st.divider()
 
@@ -305,17 +364,32 @@ Domanda dello scrittore: {testo_completo_domanda}"""
 
     st.divider()
 
-    st.header("📚 SCENE SALVATE")
+    st.header("📚 SCENE SALVATE IN ARCHIVIO")
     if st.session_state["scene_salvate"]:
         for tit, dati in st.session_state["scene_salvate"].items():
-            if dati.get("evidenziata", False):
+            in_lib = dati.get("in_libro", False) or (tit in st.session_state["libro"])
+            
+            if in_lib:
+                st.markdown(f"<div class='scena-libro'>📖 Cap {dati['capitolo']}: {tit} (Nel Libro)</div>", unsafe_allow_html=True)
+            elif dati.get("evidenziata", False):
                 st.markdown(f"<div class='scena-evidenziata'>🟨 Cap {dati['capitolo']}: {tit} (In Memoria)</div>", unsafe_allow_html=True)
             else:
                 st.write(f"📄 **Cap {dati['capitolo']}:** {tit}")
+            
             with st.expander(f"Leggi '{tit}'"):
                 if dati.get("pensieri_federico"):
                     st.caption(f"💭 **Pensieri di Federico:** {dati['pensieri_federico']}")
                     st.divider()
                 st.write(dati["testo"])
+                st.write("")
+                
+                if not in_lib:
+                    if st.button(f"📖 Aggiungi al Libro", key=f"add_lib_{tit}", use_container_width=True):
+                        st.session_state["libro"][tit] = dati
+                        st.session_state["scene_salvate"][tit]["in_libro"] = True
+                        salva_dati(FILE_LIBRO, st.session_state["libro"])
+                        salva_dati(FILE_SCENE, st.session_state["scene_salvate"])
+                        st.toast(f"Aggiunto '{tit}' al Libro e alla memoria di Luce!", icon="📖")
+                        st.rerun()
     else:
         st.caption("Nessuna scena ancora salvata.")
