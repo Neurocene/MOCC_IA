@@ -177,6 +177,13 @@ if "scene_salvate" not in st.session_state:
     st.session_state["libro"] = l
     st.session_state["personaggi"] = p
 
+# Inizializzazione della memoria temporanea audio
+if "ultimo_audio_pensieri_id" not in st.session_state:
+    st.session_state["ultimo_audio_pensieri_id"] = None
+
+if "ultimo_audio_luce_id" not in st.session_state:
+    st.session_state["ultimo_audio_luce_id"] = None
+
 # ==========================================
 # 🚀 SEZIONE SUPERIORE: SCRITTURA & GENERAZIONE
 # ==========================================
@@ -196,43 +203,51 @@ with col_pensieri:
     st.session_state["appunti_temp"] = appunti
 
     # ==========================================
-    # 🎙 REGISTRAZIONE VOCALE NATIVA (SENZA BLOCCHI)
+    # 🎙 REGISTRAZIONE VOCALE CON ANTI-LOOP
     # ==========================================
     st.markdown("### 🎙️ Registrazione vocale")
     
-    # Componente audio fluido di Streamlit
     audio_value_pensieri = st.audio_input("Premi il microfono per registrare i pensieri", key="audio_pensieri")
 
     if audio_value_pensieri is not None:
-        if client:
-            with st.spinner("🎧 Trascrizione veloce in corso con Whisper..."):
-                try:
-                    # Salvataggio temporaneo per invio a OpenAI Whisper
-                    temp_path = "temp_audio_pensieri.wav"
-                    with open(temp_path, "wb") as f:
-                        f.write(audio_value_pensieri.read())
+        current_audio_id = id(audio_value_pensieri)
+        if st.session_state["ultimo_audio_pensieri_id"] != current_audio_id:
+            if client:
+                with st.spinner("🎧 Trascrizione in corso con Whisper..."):
+                    try:
+                        temp_path = "temp_audio_pensieri.wav"
+                        with open(temp_path, "wb") as f:
+                            f.write(audio_value_pensieri.read())
 
-                    with open(temp_path, "rb") as audio_file:
-                        transcript = client.audio.transcriptions.create(
-                            model="whisper-1",
-                            file=audio_file,
-                            language="it"
-                        )
+                        with open(temp_path, "rb") as audio_file:
+                            transcript = client.audio.transcriptions.create(
+                                model="whisper-1",
+                                file=audio_file,
+                                language="it"
+                            )
 
-                    st.session_state["appunti_voce_o_file"] = transcript.text
+                        # Aggiungiamo il nuovo testo alla casella di testo
+                        testo_precedente = st.session_state.get("appunti_voce_o_file", "")
+                        if testo_precedente:
+                            st.session_state["appunti_voce_o_file"] = testo_precedente + "\n" + transcript.text
+                        else:
+                            st.session_state["appunti_voce_o_file"] = transcript.text
 
-                    if os.path.exists(temp_path):
-                        os.remove(temp_path)
+                        st.session_state["ultimo_audio_pensieri_id"] = current_audio_id
 
-                    st.toast("✅ Registrazione trascritta con successo!", icon="🎙️")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Errore durante la trascrizione: {e}")
-        else:
-            st.error("Inserisci la tua OPENAI_API_KEY nei Secrets di Streamlit.")
+                        if os.path.exists(temp_path):
+                            os.remove(temp_path)
+
+                        st.toast("✅ Registrazione trascritta con successo!", icon="🎙️")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Errore durante la trascrizione: {e}")
+            else:
+                st.error("Inserisci la tua OPENAI_API_KEY nei Secrets di Streamlit.")
 
     if st.button("🗑️ Cancella testo pensieri", use_container_width=True, key="btn_del_appunti"):
         st.session_state["appunti_voce_o_file"] = ""
+        st.session_state["ultimo_audio_pensieri_id"] = None
         st.toast("🗑️ Contenuto cancellato!", icon="🧹")
         st.rerun()
 
@@ -376,29 +391,33 @@ with col_luce:
     testo_voce_luce = st.session_state.get("testo_voce_luce_temp", "")
 
     if audio_value_luce is not None:
-        if client:
-            with st.spinner("🎧 Trascrizione per Luce con Whisper..."):
-                try:
-                    temp_path_luce = "temp_luce_audio.wav"
-                    with open(temp_path_luce, "wb") as f:
-                        f.write(audio_value_luce.read())
+        current_luce_audio_id = id(audio_value_luce)
+        if st.session_state["ultimo_audio_luce_id"] != current_luce_audio_id:
+            if client:
+                with st.spinner("🎧 Trascrizione per Luce con Whisper..."):
+                    try:
+                        temp_path_luce = "temp_luce_audio.wav"
+                        with open(temp_path_luce, "wb") as f:
+                            f.write(audio_value_luce.read())
 
-                    with open(temp_path_luce, "rb") as audio_file:
-                        transcript_l = client.audio.transcriptions.create(
-                            model="whisper-1",
-                            file=audio_file,
-                            language="it"
-                        )
-                    st.session_state["testo_voce_luce_temp"] = transcript_l.text
-                    if os.path.exists(temp_path_luce):
-                        os.remove(temp_path_luce)
+                        with open(temp_path_luce, "rb") as audio_file:
+                            transcript_l = client.audio.transcriptions.create(
+                                model="whisper-1",
+                                file=audio_file,
+                                language="it"
+                            )
+                        st.session_state["testo_voce_luce_temp"] = transcript_l.text
+                        st.session_state["ultimo_audio_luce_id"] = current_luce_audio_id
 
-                    st.toast("✅ Messaggio per Luce trascritto!", icon="💡")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Errore audio Luce: {e}")
-        else:
-            st.error("Inserisci la tua OPENAI_API_KEY nei Secrets di Streamlit.")
+                        if os.path.exists(temp_path_luce):
+                            os.remove(temp_path_luce)
+
+                        st.toast("✅ Messaggio per Luce trascritto!", icon="💡")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Errore audio Luce: {e}")
+            else:
+                st.error("Inserisci la tua OPENAI_API_KEY nei Secrets di Streamlit.")
 
     testo_libro_completo = ""
     if st.session_state["libro"]:
