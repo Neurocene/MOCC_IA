@@ -3,6 +3,7 @@ import os
 from audio_recorder_streamlit import audio_recorder
 from google import genai
 import streamlit as st
+from supabase import create_client
 
 # ==========================================
 # 🔑 1. CONTROLLO ACCESSO E PASSWORD
@@ -26,12 +27,20 @@ if not st.session_state["autenticato"]:
     st.stop()
 
 # ==========================================
-# 2. CONFIGURAZIONE CHIAVE E PAGINA
+# 2. CONFIGURAZIONE CHIAVI, SUPABASE E PAGINA
 # ==========================================
-API_KEY = st.secrets.get(
-    "GEMINI_API_KEY", "AQ.Ab8RN6IWDCL_EFVyjE48i1A69svIGS6WMHNoQXrM6vl4bEvt_Q"
-)
+API_KEY = st.secrets.get("GEMINI_API_KEY", "")
 client = genai.Client(api_key=API_KEY)
+
+SUPABASE_URL = st.secrets.get("SUPABASE_URL", "")
+SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "")
+
+supabase = None
+if SUPABASE_URL and SUPABASE_KEY:
+    try:
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception as e:
+        st.error(f"Errore connessione Supabase: {e}")
 
 st.set_page_config(page_title="MOCCIA.IA", page_icon="📚", layout="wide")
 
@@ -80,39 +89,93 @@ st.markdown(
 
 st.title("🎬 MOCCIA.IA")
 
+
 # ==========================================
-# 💾 CARICAMENTO E SALVATAGGIO LOCAL FILE
+# 💾 CARICAMENTO E SALVATAGGIO CLOUD SUPABASE
 # ==========================================
-CARTELLA_BASE = os.path.dirname(os.path.abspath(__file__))
+def carica_dati_supabase():
+    scene, libro, personaggi = {}, {}, {}
+    if not supabase:
+        return scene, libro, personaggi
 
-FILE_PERSONAGGI = os.path.join(CARTELLA_BASE, "personaggi_memoria.json")
-FILE_SCENE = os.path.join(CARTELLA_BASE, "scene_salvate.json")
-FILE_LIBRO = os.path.join(CARTELLA_BASE, "libro_capitoli.json")
+    try:
+        res_scene = supabase.table("scene").select("*").execute()
+        for r in res_scene.data:
+            scene[r["titolo"]] = {
+                "capitolo": r["capitolo"],
+                "pensieri_federico": r.get("pensieri_federico", ""),
+                "testo": r.get("testo", ""),
+                "in_libro": r.get("in_libro", False),
+            }
+    except Exception:
+        pass
+
+    try:
+        res_libro = supabase.table("libro").select("*").execute()
+        for r in res_libro.data:
+            libro[r["titolo"]] = {
+                "capitolo": r["capitolo"],
+                "pensieri_federico": r.get("pensieri_federico", ""),
+                "testo": r.get("testo", ""),
+            }
+    except Exception:
+        pass
+
+    try:
+        res_p = supabase.table("personaggi").select("*").execute()
+        for r in res_p.data:
+            personaggi[r["nome"]] = {
+                "profilo": r.get("profilo", ""),
+                "ricordi": r.get("ricordi", {}),
+            }
+    except Exception:
+        pass
+
+    return scene, libro, personaggi
 
 
-def carica_dati(filepath):
-    if os.path.exists(filepath):
-        try:
-            with open(filepath, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return {}
-    return {}
+def salva_scena_supabase(titolo, dati):
+    if supabase:
+        supabase.table("scene").upsert(
+            {
+                "titolo": titolo,
+                "capitolo": dati["capitolo"],
+                "pensieri_federico": dati["pensieri_federico"],
+                "testo": dati["testo"],
+                "in_libro": dati["in_libro"],
+            }
+        ).execute()
 
 
-def salva_dati(filepath, data):
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
+def salva_libro_supabase(titolo, dati):
+    if supabase:
+        supabase.table("libro").upsert(
+            {
+                "titolo": titolo,
+                "capitolo": dati["capitolo"],
+                "pensieri_federico": dati["pensieri_federico"],
+                "testo": dati["testo"],
+            }
+        ).execute()
 
 
-if "personaggi" not in st.session_state:
-    st.session_state["personaggi"] = carica_dati(FILE_PERSONAGGI)
+def rimuovi_libro_supabase(titolo):
+    if supabase:
+        supabase.table("libro").delete().eq("titolo", titolo).execute()
+
+
+def salva_personaggio_supabase(nome, dati):
+    if supabase:
+        supabase.table("personaggi").upsert(
+            {"nome": nome, "profilo": dati["profilo"], "ricordi": dati["ricordi"]}
+        ).execute()
+
 
 if "scene_salvate" not in st.session_state:
-    st.session_state["scene_salvate"] = carica_dati(FILE_SCENE)
-
-if "libro" not in st.session_state:
-    st.session_state["libro"] = carica_dati(FILE_LIBRO)
+    s, l, p = carica_dati_supabase()
+    st.session_state["scene_salvate"] = s
+    st.session_state["libro"] = l
+    st.session_state["personaggi"] = p
 
 # ==========================================
 # 🚀 SEZIONE SUPERIORE: SCRITTURA & GENERAZIONE
@@ -252,16 +315,17 @@ with col_scena:
         if scena_finale and titolo_scena:
             pensieri_attuali = st.session_state.get("appunti_temp", "")
 
-            st.session_state["scene_salvate"][titolo_scena] = {
+            dati_scena = {
                 "capitolo": num_capitolo_salva,
                 "pensieri_federico": pensieri_attuali,
                 "testo": scena_finale,
                 "in_libro": False,
             }
-            salva_dati(FILE_SCENE, st.session_state["scene_salvate"])
+            st.session_state["scene_salvate"][titolo_scena] = dati_scena
+            salva_scena_supabase(titolo_scena, dati_scena)
 
             st.toast(
-                f"🎉 Scena '{titolo_scena}' salvata per il Capitolo {num_capitolo_salva}!",
+                f"🎉 Scena '{titolo_scena}' salvata nel Cloud per tutti!",
                 icon="💾",
             )
             st.rerun()
@@ -353,7 +417,7 @@ with col_luce:
                 "🗑️ CANCELLA AUDIO", use_container_width=True, key="btn_del_luce"
             ):
                 st.session_state["testo_voce_luce_temp"] = ""
-                st.toast("🗑️️ Audio cancellato!", icon="🧹")
+                st.toast("🗑️ Audio cancellato!", icon="🧹")
                 st.rerun()
 
     testo_libro_completo = ""
@@ -443,11 +507,12 @@ with col_destra_inferiore:
                     ):
                         st.session_state["libro"][tit] = dati
                         st.session_state["scene_salvate"][tit]["in_libro"] = True
-                        salva_dati(FILE_LIBRO, st.session_state["libro"])
-                        salva_dati(FILE_SCENE, st.session_state["scene_salvate"])
+                        salva_libro_supabase(tit, dati)
+                        salva_scena_supabase(
+                            tit, st.session_state["scene_salvate"][tit]
+                        )
                         st.toast(
-                            f"Aggiunto '{tit}' al Libro e alla memoria di Luce!",
-                            icon="📖",
+                            f"Aggiunto '{tit}' al Libro sul Cloud!", icon="📖"
                         )
                         st.rerun()
     else:
@@ -486,12 +551,14 @@ with col_destra_inferiore:
                     use_container_width=True,
                 ):
                     del st.session_state["libro"][tit]
+                    rimuovi_libro_supabase(tit)
                     if tit in st.session_state["scene_salvate"]:
                         st.session_state["scene_salvate"][tit][
                             "in_libro"
                         ] = False
-                    salva_dati(FILE_LIBRO, st.session_state["libro"])
-                    salva_dati(FILE_SCENE, st.session_state["scene_salvate"])
+                        salva_scena_supabase(
+                            tit, st.session_state["scene_salvate"][tit]
+                        )
                     st.toast(f"Rimosso '{tit}' dal Libro", icon="🗑️")
                     st.rerun()
     else:
@@ -514,14 +581,14 @@ with col_destra_inferiore:
 
         if st.button("💾 Salva Personaggio", use_container_width=True):
             if nome_p:
-                if nome_p not in st.session_state["personaggi"]:
-                    st.session_state["personaggi"][nome_p] = {
-                        "profilo": desc_p,
-                        "ricordi": {},
-                    }
-                else:
-                    st.session_state["personaggi"][nome_p]["profilo"] = desc_p
-                salva_dati(FILE_PERSONAGGI, st.session_state["personaggi"])
+                dati_p = {
+                    "profilo": desc_p,
+                    "ricordi": st.session_state["personaggi"]
+                    .get(nome_p, {})
+                    .get("ricordi", {}),
+                }
+                st.session_state["personaggi"][nome_p] = dati_p
+                salva_personaggio_supabase(nome_p, dati_p)
                 st.toast(f"👤 Personaggio {nome_p} salvato!", icon="💾")
                 st.rerun()
 
@@ -532,54 +599,3 @@ with col_destra_inferiore:
                 st.caption("**RICORDI:**")
                 for k, v in info.get("ricordi", {}).items():
                     st.caption(f"- Cap {k}: {v}")
-
-    st.divider()
-
-    # ==========================================
-    # 💾 SALVATAGGIO & RIPRISTINO BACKUP DATI
-    # ==========================================
-    st.header("💾 BACKUP & RIPRISTINO DATI")
-
-    dati_completi_backup = {
-        "personaggi": st.session_state["personaggi"],
-        "scene_salvate": st.session_state["scene_salvate"],
-        "libro": st.session_state["libro"],
-    }
-    json_str = json.dumps(dati_completi_backup, ensure_ascii=False, indent=4)
-
-    st.download_button(
-        label="📥 Scarica Backup Archivio (JSON)",
-        data=json_str,
-        file_name="backup_mocc_ia.json",
-        mime="application/json",
-        use_container_width=True,
-    )
-
-    file_backup_up = st.file_uploader(
-        "📤 Ricarica Backup salvato (.json):", type=["json"], key="up_backup"
-    )
-    if file_backup_up is not None:
-        try:
-            dati_caricati = json.load(file_backup_up)
-            if (
-                "scene_salvate" in dati_caricati
-                and "personaggi" in dati_caricati
-            ):
-                st.session_state["personaggi"] = dati_caricati.get(
-                    "personaggi", {}
-                )
-                st.session_state["scene_salvate"] = dati_caricati.get(
-                    "scene_salvate", {}
-                )
-                st.session_state["libro"] = dati_caricati.get("libro", {})
-
-                salva_dati(FILE_PERSONAGGI, st.session_state["personaggi"])
-                salva_dati(FILE_SCENE, st.session_state["scene_salvate"])
-                salva_dati(FILE_LIBRO, st.session_state["libro"])
-
-                st.toast(
-                    "🎉 Archivio e Libro ripristinati con successo!", icon="✅"
-                )
-                st.rerun()
-        except Exception as e:
-            st.error(f"Errore nel caricamento del file backup: {e}")
