@@ -39,7 +39,7 @@ if OPENAI_KEY and OPENAI_KEY.strip() != "":
     try:
         client = OpenAI(api_key=OPENAI_KEY)
     except Exception as e:
-        st.error(f"⚠️️ Errore nell'inizializzazione di OpenAI: {e}")
+        st.error(f"⚠️ Errore nell'inizializzazione di OpenAI: {e}")
 else:
     st.warning(
         "⚠️ Attenzione: OPENAI_API_KEY non trovata o vuota nei Secrets di Streamlit Cloud."
@@ -57,7 +57,7 @@ if SUPABASE_URL and SUPABASE_KEY:
         st.error(f"Errore connessione Supabase: {e}")
 
 # ==========================================
-# 🎨 STILI CSS PER MICROFONO (ROSSO/VERDE + NOTIFICA)
+# 🎨 STILI CSS PER MICROFONO E NOTIFICA
 # ==========================================
 st.markdown(
     """
@@ -99,14 +99,14 @@ st.markdown(
         margin: 10px auto !important;
     }
 
-    /* Effetto Animazione Lampeggiante per la Notifica RECORDING */
+    /* Effetto Lampeggiante per lo Stato Recording */
     @keyframes blinker {
         50% { opacity: 0; }
     }
     .recording-status {
         color: #e74c3c;
         font-weight: bold;
-        font-size: 16px;
+        font-size: 15px;
         animation: blinker 1.2s linear infinite;
         display: inline-block;
         margin-top: 5px;
@@ -226,63 +226,51 @@ with col_pensieri:
     st.session_state["appunti_temp"] = appunti
 
     # ==========================================
-    # 🎙️️ INTERFACCIA REGISTRAZIONE AUDIO DEDICATA
+    # 🎙 REGISTRAZIONE VOCALE OTTIMIZZATA
     # ==========================================
-    st.markdown("🎙️ **Registrazione Audio Pensieri:**")
+    st.markdown("### 🎙️ Registrazione vocale")
 
-    # Widget Registratore (Sfondo Scuro + Colori Verde/Rosso)
     audio_bytes_appunti = audio_recorder(
-        text="Premi il microfono sopra per avviare la registrazione",
+        text="Clicca l'icona per iniziare a registrare, riclicca per completare",
         icon_size="2x",
-        neutral_color="#2ECC71",   # Verde in Pausa/Pronto
-        recording_color="#E74C3C", # Rosso durante RECORD
+        neutral_color="#2ECC71",   # Verde quando è in attesa
+        recording_color="#E74C3C", # Rosso brillante durante la registrazione
         key="rec_appunti",
     )
 
-    # Tasti di Comando: RECORD / STOP & TRASCRIVI / CANCELLA
-    col_rec1, col_rec2, col_rec3 = st.columns([1, 1.3, 1])
-
-    with col_rec1:
-        st.info("🔴 **RECORD**\n(Clicca il microfono sopra)")
-
-    with col_rec2:
-        if audio_bytes_appunti:
-            if st.button("⏹️ STOP & TRASCRIVI", type="primary", use_container_width=True, key="btn_stop_appunti"):
-                if client:
-                    with st.spinner("🎧 Trascrizione veloce in corso con Whisper..."):
-                        try:
-                            temp_path = "temp_audio_pensieri.wav"
-                            with open(temp_path, "wb") as f:
-                                f.write(audio_bytes_appunti)
-
-                            with open(temp_path, "rb") as audio_file:
-                                transcript = client.audio.transcriptions.create(
-                                    model="whisper-1",
-                                    file=audio_file,
-                                    language="it"
-                                )
-
-                            st.session_state["appunti_voce_o_file"] = transcript.text
-                            if os.path.exists(temp_path):
-                                os.remove(temp_path)
-
-                            st.toast("✅ Vocale trascritto nei pensieri!", icon="🎙️")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Errore trascrizione audio: {e}")
-                else:
-                    st.error("Inserisci la tua OPENAI_API_KEY nei Secrets di Streamlit.")
-        else:
-            st.button("⏹️ STOP", disabled=True, use_container_width=True, key="btn_stop_disabled")
-
-    with col_rec3:
-        if st.button("🗑️ CANCELLA", use_container_width=True, key="btn_del_appunti"):
-            st.session_state["appunti_voce_o_file"] = ""
-            st.toast("🗑️ Audio e testo cancellati!", icon="🧹")
-            st.rerun()
-
     if audio_bytes_appunti:
-        st.markdown("<span class='recording-status'>🔴 RECORDING EFFETTUATO - PRONTO PER LA TRASCRIZIONE</span>", unsafe_allow_html=True)
+        st.markdown("<span class='recording-status'>🔴 RECORDING COMPLETATO - TRASCRIZIONE IN CORSO...</span>", unsafe_allow_html=True)
+
+        if client:
+            with st.spinner("🎧 Trascrizione automatica in corso con Whisper..."):
+                try:
+                    temp_path = "temp_audio_pensieri.wav"
+                    with open(temp_path, "wb") as f:
+                        f.write(audio_bytes_appunti)
+
+                    with open(temp_path, "rb") as audio_file:
+                        transcript = client.audio.transcriptions.create(
+                            model="whisper-1",
+                            file=audio_file,
+                            language="it"
+                        )
+
+                    st.session_state["appunti_voce_o_file"] = transcript.text
+
+                    if os.path.exists(temp_path):
+                        os.remove(temp_path)
+
+                    st.toast("✅ Registrazione trascritta con successo nei pensieri!", icon="🎙️")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Errore durante la trascrizione audio: {e}")
+        else:
+            st.error("Inserisci la tua OPENAI_API_KEY nei Secrets di Streamlit.")
+
+    if st.button("🗑️ Cancella testo pensieri", use_container_width=True, key="btn_del_appunti"):
+        st.session_state["appunti_voce_o_file"] = ""
+        st.toast("🗑️ Contenuto cancellato!", icon="🧹")
+        st.rerun()
 
     st.divider()
 
@@ -418,9 +406,9 @@ with col_luce:
         height=100,
     )
 
-    st.markdown("🎙️ **Parla a voce con Luce:**")
+    st.markdown("### 🎙️ Registrazione vocale Luce")
     audio_bytes_luce = audio_recorder(
-        text="Premi per registrare la domanda",
+        text="Clicca per registrare la domanda per Luce",
         icon_size="2x",
         neutral_color="#2ECC71",   # Verde in pausa/pronto
         recording_color="#E74C3C", # Rosso in registrazione
@@ -430,45 +418,30 @@ with col_luce:
     testo_voce_luce = st.session_state.get("testo_voce_luce_temp", "")
 
     if audio_bytes_luce:
-        st.markdown("<span class='recording-status'>🔴 RECORDING LUCE SALVATO</span>", unsafe_allow_html=True)
-        col_btn_l1, col_btn_l2 = st.columns(2)
-        with col_btn_l1:
-            if st.button(
-                "🛑 STOP & TRASCRIVI",
-                type="primary",
-                use_container_width=True,
-                key="btn_stop_luce",
-            ):
-                if client:
-                    with st.spinner("🎧 Trascrizione per Luce con Whisper..."):
-                        try:
-                            temp_path_luce = "temp_luce_audio.wav"
-                            with open(temp_path_luce, "wb") as f:
-                                f.write(audio_bytes_luce)
+        st.markdown("<span class='recording-status'>🔴 RECORDING LUCE COMPLETATO - TRASCRIZIONE IN CORSO...</span>", unsafe_allow_html=True)
+        if client:
+            with st.spinner("🎧 Trascrizione per Luce con Whisper..."):
+                try:
+                    temp_path_luce = "temp_luce_audio.wav"
+                    with open(temp_path_luce, "wb") as f:
+                        f.write(audio_bytes_luce)
 
-                            with open(temp_path_luce, "rb") as audio_file:
-                                transcript_l = client.audio.transcriptions.create(
-                                    model="whisper-1",
-                                    file=audio_file,
-                                    language="it"
-                                )
-                            st.session_state["testo_voce_luce_temp"] = transcript_l.text
-                            if os.path.exists(temp_path_luce):
-                                os.remove(temp_path_luce)
+                    with open(temp_path_luce, "rb") as audio_file:
+                        transcript_l = client.audio.transcriptions.create(
+                            model="whisper-1",
+                            file=audio_file,
+                            language="it"
+                        )
+                    st.session_state["testo_voce_luce_temp"] = transcript_l.text
+                    if os.path.exists(temp_path_luce):
+                        os.remove(temp_path_luce)
 
-                            st.toast("✅ Messaggio per Luce trascritto!", icon="💡")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Errore audio Luce: {e}")
-                else:
-                    st.error("Inserisci la tua OPENAI_API_KEY nei Secrets di Streamlit.")
-        with col_btn_l2:
-            if st.button(
-                "🗑️ CANCELLA AUDIO", use_container_width=True, key="btn_del_luce"
-            ):
-                st.session_state["testo_voce_luce_temp"] = ""
-                st.toast("🗑️ Audio cancellato!", icon="🧹")
-                st.rerun()
+                    st.toast("✅ Messaggio per Luce trascritto!", icon="💡")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Errore audio Luce: {e}")
+        else:
+            st.error("Inserisci la tua OPENAI_API_KEY nei Secrets di Streamlit.")
 
     testo_libro_completo = ""
     if st.session_state["libro"]:
