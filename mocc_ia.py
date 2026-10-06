@@ -1,7 +1,7 @@
 import json
 import os
 from audio_recorder_streamlit import audio_recorder
-from google import genai
+from openai import OpenAI
 import streamlit as st
 from supabase import create_client
 
@@ -31,18 +31,18 @@ if not st.session_state["autenticato"]:
 # ==========================================
 st.set_page_config(page_title="MOCCIA.IA", page_icon="📚", layout="wide")
 
-# Inizializzazione protetta del client Gemini
-API_KEY = st.secrets.get("GEMINI_API_KEY", None)
+# Inizializzazione protetta Client OpenAI (ChatGPT)
+OPENAI_KEY = st.secrets.get("OPENAI_API_KEY", None)
 
 client = None
-if API_KEY and API_KEY.strip() != "":
+if OPENAI_KEY and OPENAI_KEY.strip() != "":
     try:
-        client = genai.Client(api_key=API_KEY)
+        client = OpenAI(api_key=OPENAI_KEY)
     except Exception as e:
-        st.error(f"⚠️ Errore nell'inizializzazione di Gemini API: {e}")
+        st.error(f"⚠️ Errore nell'inizializzazione di OpenAI: {e}")
 else:
     st.warning(
-        "⚠️ Attenzione: GEMINI_API_KEY non trovata o vuota nei Secrets di Streamlit Cloud."
+        "⚠️ Attenzione: OPENAI_API_KEY non trovata o vuota nei Secrets di Streamlit Cloud."
     )
 
 # Configurazione Connessione Supabase
@@ -56,7 +56,7 @@ if SUPABASE_URL and SUPABASE_KEY:
     except Exception as e:
         st.error(f"Errore connessione Supabase: {e}")
 
-# CSS Personalizzato: Fix Microfono + Stili Schede
+# CSS Personalizzato
 st.markdown(
     """
     <style>
@@ -83,7 +83,6 @@ st.markdown(
         margin: 35px 0;
         box-shadow: 0px 0px 8px rgba(255, 255, 255, 0.8);
     }
-    /* 🎙️ Fondino e Visibilità Microfono */
     iframe[title="audio_recorder_streamlit.audio_recorder"] {
         height: 80px !important;
         width: 100% !important;
@@ -227,24 +226,26 @@ with col_pensieri:
                 key="btn_stop_appunti",
             ):
                 if client:
-                    with st.spinner("🎧 Trascrizione in corso..."):
+                    with st.spinner("🎧 Trascrizione in corso con Whisper..."):
                         try:
-                            resp_audio = client.models.generate_content(
-                                model="gemini-3.8-flash",
-                                contents=[
-                                    "Trascrivi fedelmente questo audio in italiano:",
-                                    genai.types.Part.from_bytes(
-                                        data=audio_bytes_appunti, mime_type="audio/wav"
-                                    ),
-                                ],
-                            )
-                            st.session_state["appunti_voce_o_file"] = resp_audio.text
+                            # Salvataggio temporaneo dell'audio per Whisper
+                            with open("temp_audio.wav", "wb") as f:
+                                f.write(audio_bytes_appunti)
+                            
+                            with open("temp_audio.wav", "rb") as audio_file:
+                                transcript = client.audio.transcriptions.create(
+                                    model="whisper-1",
+                                    file=audio_file,
+                                    language="it"
+                                )
+                            
+                            st.session_state["appunti_voce_o_file"] = transcript.text
                             st.toast("✅ Vocale trascritto nei pensieri!", icon="🎙️")
                             st.rerun()
                         except Exception as e:
                             st.error(f"Errore audio: {e}")
                 else:
-                    st.error("Inserisci la tua GEMINI_API_KEY nei Secrets di Streamlit.")
+                    st.error("Inserisci la tua OPENAI_API_KEY nei Secrets di Streamlit.")
         with col_btn_a2:
             if st.button(
                 "🗑️ CANCELLA AUDIO",
@@ -278,7 +279,7 @@ with col_pensieri:
     ):
         if appunti:
             if client:
-                with st.spinner("🤖 MOCCIA.IA sta elaborando la scena..."):
+                with st.spinner("🤖 MOCCIA.IA sta elaborando la scena con ChatGPT..."):
                     try:
                         info_p = ""
                         for nome, data in st.session_state["personaggi"].items():
@@ -295,16 +296,17 @@ with col_pensieri:
 
                         prompt = f"Sei MOCCIA.IA, uno scrittore professionista di romanzi.\n{info_p}\nPensieri di Federico: {appunti}\nScrivi direttamente la scena in italiano in modo lungo, ricco di dettagli ed emozionante."
 
-                        response = client.models.generate_content(
-                            model="gemini-3.8-flash", contents=prompt
+                        response = client.chat.completions.create(
+                            model="gpt-4o",
+                            messages=[{"role": "user", "content": prompt}]
                         )
-                        st.session_state["scena_generata"] = response.text
+                        st.session_state["scena_generata"] = response.choices[0].message.content
                         st.toast("✨ Scena generata con successo!", icon="🎬")
                         st.rerun()
                     except Exception as e:
                         st.error(f"Errore generazione: {e}")
             else:
-                st.error("Inserisci la tua GEMINI_API_KEY nei Secrets di Streamlit.")
+                st.error("Inserisci la tua OPENAI_API_KEY nei Secrets di Streamlit.")
         else:
             st.warning("Inserisci prima i pensieri di Federico!")
 
@@ -416,24 +418,22 @@ with col_luce:
                 if client:
                     with st.spinner("🎧 Trascrizione per Luce..."):
                         try:
-                            resp_audio_l = client.models.generate_content(
-                                model="gemini-3.8-flash",
-                                contents=[
-                                    "Trascrivi fedelmente questo audio in italiano:",
-                                    genai.types.Part.from_bytes(
-                                        data=audio_bytes_luce, mime_type="audio/wav"
-                                    ),
-                                ],
-                            )
-                            st.session_state["testo_voce_luce_temp"] = (
-                                resp_audio_l.text
-                            )
+                            with open("temp_luce.wav", "wb") as f:
+                                f.write(audio_bytes_luce)
+                            
+                            with open("temp_luce.wav", "rb") as audio_file:
+                                transcript_l = client.audio.transcriptions.create(
+                                    model="whisper-1",
+                                    file=audio_file,
+                                    language="it"
+                                )
+                            st.session_state["testo_voce_luce_temp"] = transcript_l.text
                             st.toast("✅ Messaggio per Luce trascritto!", icon="💡")
                             st.rerun()
                         except Exception as e:
                             st.error(f"Errore audio Luce: {e}")
                 else:
-                    st.error("Inserisci la tua GEMINI_API_KEY nei Secrets di Streamlit.")
+                    st.error("Inserisci la tua OPENAI_API_KEY nei Secrets di Streamlit.")
         with col_btn_l2:
             if st.button(
                 "🗑️ CANCELLA AUDIO", use_container_width=True, key="btn_del_luce"
@@ -463,10 +463,10 @@ with col_luce:
             or testo_libro_completo
         ):
             if client:
-                with st.spinner("Luce sta analizzando il libro..."):
+                with st.spinner("Luce sta analizzando il libro con ChatGPT..."):
                     try:
                         prompt_l = f"""Sei Luce, un'esperta editor narrativa e consulente letteraria d'élite per romanzi.
-Hai accesso completo alla memoria del "LIBRO" (l'insieme dei capitoli ufficialmente approvati) e alle singole scene.
+Haiaccesso completo alla memoria del "LIBRO" (l'insieme dei capitoli ufficialmente approvati) e alle singole scene.
 
 IL TUO OBIETTIVO:
 1. Mantenere una visione d'insieme del LIBRO come opera unica, organica e coerente.
@@ -479,14 +479,15 @@ IL TUO OBIETTIVO:
 File allegato: {testo_file_luce}
 Domanda dello scrittore: {testo_completo_domanda}"""
 
-                        resp_l = client.models.generate_content(
-                            model="gemini-3.8-flash", contents=prompt_l
+                        resp_l = client.chat.completions.create(
+                            model="gpt-4o",
+                            messages=[{"role": "user", "content": prompt_l}]
                         )
-                        st.info(f"**Luce:** {resp_l.text}")
+                        st.info(f"**Luce:** {resp_l.choices[0].message.content}")
                     except Exception as e:
                         st.error(f"Errore: {e}")
             else:
-                st.error("Inserisci la tua GEMINI_API_KEY nei Secrets di Streamlit.")
+                st.error("Inserisci la tua OPENAI_API_KEY nei Secrets di Streamlit.")
         else:
             st.warning(
                 "Aggiungi scene al libro, carica un file o fai una domanda a Luce!"
