@@ -1,8 +1,8 @@
-import streamlit as st
-import os
 import json
-from google import genai
+import os
 from audio_recorder_streamlit import audio_recorder
+from google import genai
+import streamlit as st
 
 # ==========================================
 # 🔑 1. CONTROLLO ACCESSO E PASSWORD
@@ -14,7 +14,9 @@ if "autenticato" not in st.session_state:
 
 if not st.session_state["autenticato"]:
     st.title("🔒 ACCESSO RISERVATO - MOCCIA.IA")
-    pass_inserita = st.text_input("Inserisci la password segreta per accedere:", type="password")
+    pass_inserita = st.text_input(
+        "Inserisci la password segreta per accedere:", type="password"
+    )
     if st.button("Sblocca App"):
         if pass_inserita == PASSWORD_SEGRETA:
             st.session_state["autenticato"] = True
@@ -26,13 +28,16 @@ if not st.session_state["autenticato"]:
 # ==========================================
 # 2. CONFIGURAZIONE CHIAVE E PAGINA
 # ==========================================
-API_KEY = st.secrets.get("GEMINI_API_KEY", "AQ.Ab8RN6IWDCL_EFVyjE48i1A69svIGS6WMHNoQXrM6vl4bEvt_Q")
+API_KEY = st.secrets.get(
+    "GEMINI_API_KEY", "AQ.Ab8RN6IWDCL_EFVyjE48i1A69svIGS6WMHNoQXrM6vl4bEvt_Q"
+)
 client = genai.Client(api_key=API_KEY)
 
 st.set_page_config(page_title="MOCCIA.IA", page_icon="📚", layout="wide")
 
-# CSS Personalizzato
-st.markdown("""
+# CSS Personalizzato con Fix Microfono
+st.markdown(
+    """
     <style>
     .scena-evidenziata {
         background-color: #f1c40f !important;
@@ -69,19 +74,21 @@ st.markdown("""
         margin: 10px auto !important;
     }
     </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 st.title("🎬 MOCCIA.IA")
 
 # ==========================================
-# 💾 CARICAMENTO E SALVATAGGIO DATI (CON PERCORSI ASSOLUTI)
+# 💾 CARICAMENTO E SALVATAGGIO LOCAL FILE
 # ==========================================
-# Determina la cartella esatta in cui si trova il file di questo script
 CARTELLA_BASE = os.path.dirname(os.path.abspath(__file__))
 
 FILE_PERSONAGGI = os.path.join(CARTELLA_BASE, "personaggi_memoria.json")
 FILE_SCENE = os.path.join(CARTELLA_BASE, "scene_salvate.json")
 FILE_LIBRO = os.path.join(CARTELLA_BASE, "libro_capitoli.json")
+
 
 def carica_dati(filepath):
     if os.path.exists(filepath):
@@ -92,9 +99,11 @@ def carica_dati(filepath):
             return {}
     return {}
 
+
 def salva_dati(filepath, data):
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
+
 
 if "personaggi" not in st.session_state:
     st.session_state["personaggi"] = carica_dati(FILE_PERSONAGGI)
@@ -112,57 +121,82 @@ col_pensieri, col_scena = st.columns(2, gap="large")
 
 with col_pensieri:
     st.subheader("💭 1. I pensieri di Federico")
-    
-    testo_voce_o_file = st.session_state.get('appunti_voce_o_file', '')
-    
+
+    testo_voce_o_file = st.session_state.get("appunti_voce_o_file", "")
+
     appunti = st.text_area(
         "Scrivi o modifica i tuoi pensieri:",
         value=testo_voce_o_file,
         height=260,
-        placeholder="Es: Marta e Giovanni si incontrano a Ponte Milvio..."
+        placeholder="Es: Marta e Giovanni si incontrano a Ponte Milvio...",
     )
-    st.session_state['appunti_temp'] = appunti
+    st.session_state["appunti_temp"] = appunti
 
     st.write("🎙️ **Registra Vocale per i Pensieri:**")
     audio_bytes_appunti = audio_recorder(
-        text="Clicca per registrare/fermare", 
-        icon_size="2x", 
+        text="Clicca per registrare/fermare",
+        icon_size="2x",
         neutral_color="#FFFFFF",
         recording_color="#FF0000",
-        key="rec_appunti"
+        key="rec_appunti",
     )
-    
+
     if audio_bytes_appunti:
         col_btn_a1, col_btn_a2 = st.columns(2)
         with col_btn_a1:
-            if st.button("🛑 STOP & TRASCRIVI", type="primary", use_container_width=True, key="btn_stop_appunti"):
+            if st.button(
+                "🛑 STOP & TRASCRIVI",
+                type="primary",
+                use_container_width=True,
+                key="btn_stop_appunti",
+            ):
                 with st.spinner("🎧 Trascrizione in corso..."):
                     try:
                         resp_audio = client.models.generate_content(
-                            model='gemini-3.8-flash',
-                            contents=["Trascrivi fedelmente questo audio in italiano:", genai.types.Part.from_bytes(data=audio_bytes_appunti, mime_type="audio/wav")]
+                            model="gemini-3.8-flash",
+                            contents=[
+                                "Trascrivi fedelmente questo audio in italiano:",
+                                genai.types.Part.from_bytes(
+                                    data=audio_bytes_appunti, mime_type="audio/wav"
+                                ),
+                            ],
                         )
-                        st.session_state['appunti_voce_o_file'] = resp_audio.text
+                        st.session_state["appunti_voce_o_file"] = resp_audio.text
                         st.toast("✅ Vocale trascritto nei pensieri!", icon="🎙️")
                         st.rerun()
                     except Exception as e:
                         st.error(f"Errore audio: {e}")
         with col_btn_a2:
-            if st.button("🗑️ CANCELLA AUDIO", use_container_width=True, key="btn_del_appunti"):
-                st.session_state['appunti_voce_o_file'] = ""
+            if st.button(
+                "🗑️ CANCELLA AUDIO",
+                use_container_width=True,
+                key="btn_del_appunti",
+            ):
+                st.session_state["appunti_voce_o_file"] = ""
                 st.toast("🗑️ Audio cancellato!", icon="🧹")
                 st.rerun()
 
-    file_appunti_up = st.file_uploader("📂 Carica file .txt con i pensieri:", type=["txt"], key="up_appunti")
+    file_appunti_up = st.file_uploader(
+        "📂 Carica file .txt con i pensieri:", type=["txt"], key="up_appunti"
+    )
     if file_appunti_up is not None:
-        testo_caricato = file_appunti_up.read().decode("utf-8", errors="ignore")
-        if st.session_state.get('appunti_voce_o_file') != testo_caricato:
-            st.session_state['appunti_voce_o_file'] = testo_caricato
-            st.toast("✅ File caricato con successo nei pensieri di Federico!", icon="📂")
+        testo_caricato = file_appunti_up.read().decode(
+            "utf-8", errors="ignore"
+        )
+        if st.session_state.get("appunti_voce_o_file") != testo_caricato:
+            st.session_state["appunti_voce_o_file"] = testo_caricato
+            st.toast(
+                "✅ File caricato con successo nei pensieri di Federico!",
+                icon="📂",
+            )
             st.rerun()
 
     st.write("")
-    if st.button("🚀 TRASFORMA IN SCENA CON MOCCIA.IA", type="primary", use_container_width=True):
+    if st.button(
+        "🚀 TRASFORMA IN SCENA CON MOCCIA.IA",
+        type="primary",
+        use_container_width=True,
+    ):
         if appunti:
             with st.spinner("🤖 MOCCIA.IA sta elaborando la scena..."):
                 try:
@@ -170,17 +204,21 @@ with col_pensieri:
                     for nome, data in st.session_state["personaggi"].items():
                         if nome.lower() in appunti.lower():
                             info_p += f"\n--- PROFILO {nome.upper()} ---\nPROFILO: {data['profilo']}\n"
-                            ricordi_passati = [f"NEL CAP {k}: {v}" for k, v in data.get("ricordi", {}).items()]
+                            ricordi_passati = [
+                                f"NEL CAP {k}: {v}"
+                                for k, v in data.get("ricordi", {}).items()
+                            ]
                             if ricordi_passati:
-                                info_p += "RICORDI PASSATI:\n" + "\n".join(ricordi_passati) + "\n"
-                    
+                                info_p += "RICORDI PASSATI:\n" + "\n".join(
+                                    ricordi_passati
+                                ) + "\n"
+
                     prompt = f"Sei MOCCIA.IA, uno scrittore professionista di romanzi.\n{info_p}\nPensieri di Federico: {appunti}\nScrivi direttamente la scena in italiano in modo lungo, ricco di dettagli ed emozionante."
-                    
+
                     response = client.models.generate_content(
-                        model='gemini-3.8-flash',
-                        contents=prompt
+                        model="gemini-3.8-flash", contents=prompt
                     )
-                    st.session_state['scena_generata'] = response.text
+                    st.session_state["scena_generata"] = response.text
                     st.toast("✨ Scena generata con successo!", icon="🎬")
                     st.rerun()
                 except Exception as e:
@@ -192,29 +230,40 @@ with col_scena:
     st.subheader("🎬 2. La Scena Generata")
     scena_finale = st.text_area(
         "Testo finale della scena (puoi modificarlo):",
-        value=st.session_state.get('scena_generata', ''),
-        height=260
+        value=st.session_state.get("scena_generata", ""),
+        height=260,
     )
-    st.session_state['scena_generata'] = scena_finale
+    st.session_state["scena_generata"] = scena_finale
 
     st.divider()
     st.subheader("💾 Salva la Scena")
-    titolo_scena = st.text_input("Titolo della Scena:", placeholder="Es: Il tramonto a Ponte Milvio")
-    num_capitolo_salva = st.number_input("Numero capitolo:", min_value=1, value=1, step=1, key="cap_salva")
+    titolo_scena = st.text_input(
+        "Titolo della Scena:", placeholder="Es: Il tramonto a Ponte Milvio"
+    )
+    num_capitolo_salva = st.number_input(
+        "Numero capitolo:", min_value=1, value=1, step=1, key="cap_salva"
+    )
 
-    if st.button("📁 SALVA SCENA NELL'ARCHIVIO", use_container_width=True, type="primary"):
+    if st.button(
+        "📁 SALVA SCENA NELL'ARCHIVIO",
+        use_container_width=True,
+        type="primary",
+    ):
         if scena_finale and titolo_scena:
-            pensieri_attuali = st.session_state.get('appunti_temp', '')
-            
+            pensieri_attuali = st.session_state.get("appunti_temp", "")
+
             st.session_state["scene_salvate"][titolo_scena] = {
                 "capitolo": num_capitolo_salva,
                 "pensieri_federico": pensieri_attuali,
                 "testo": scena_finale,
-                "in_libro": False
+                "in_libro": False,
             }
             salva_dati(FILE_SCENE, st.session_state["scene_salvate"])
-            
-            st.toast(f"🎉 Scena '{titolo_scena}' salvata con successo per il Capitolo {num_capitolo_salva}!", icon="💾")
+
+            st.toast(
+                f"🎉 Scena '{titolo_scena}' salvata per il Capitolo {num_capitolo_salva}!",
+                icon="💾",
+            )
             st.rerun()
         else:
             st.error("Inserisci un titolo e genera prima la scena!")
@@ -232,69 +281,102 @@ col_luce, col_destra_inferiore = st.columns([1, 1], gap="large")
 # --- COLONNA INFERIORE SINISTRA: LUCE ---
 with col_luce:
     st.header("💡 LUCE - EDITOR NARRATIVO")
-    
-    opzioni_scene = ["Nessuna scena selezionata"] + list(st.session_state["scene_salvate"].keys())
-    scena_scelta_luce = st.selectbox("📖 Seleziona una singola scena da analizzare:", opzioni_scene)
-    
+
+    opzioni_scene = ["Nessuna scena selezionata"] + list(
+        st.session_state["scene_salvate"].keys()
+    )
+    scena_scelta_luce = st.selectbox(
+        "📖 Seleziona una singola scena da analizzare:", opzioni_scene
+    )
+
     testo_scena_selezionata = ""
     if scena_scelta_luce != "Nessuna scena selezionata":
         dati_s = st.session_state["scene_salvate"][scena_scelta_luce]
-        pensieri_collegati = dati_s.get("pensieri_federico", "Nessun pensiero specificato.")
+        pensieri_collegati = dati_s.get(
+            "pensieri_federico", "Nessun pensiero specificato."
+        )
         testo_scena_selezionata = f"\n--- SCENA SINGOLA SELEZIONATA ('{scena_scelta_luce}' - Cap {dati_s['capitolo']}) ---\nPENSIERI DI FEDERICO:\n{pensieri_collegati}\n\nTESTO SCENA:\n{dati_s['testo']}\n"
 
-    file_luce = st.file_uploader("📂 Invia un file .txt esterno a Luce:", type=["txt"], key="up_luce")
+    file_luce = st.file_uploader(
+        "📂 Invia un file .txt esterno a Luce:", type=["txt"], key="up_luce"
+    )
     testo_file_luce = ""
     if file_luce is not None:
         testo_file_luce = file_luce.read().decode("utf-8", errors="ignore")
-        if st.session_state.get('last_luce_file') != file_luce.name:
-            st.session_state['last_luce_file'] = file_luce.name
-            st.toast("✅ File caricato con successo per Luce!", icon="💡")
 
-    domanda_luce = st.text_area("Chiedi un consiglio o come andare avanti a Luce:", placeholder="Es: Analizza la coerenza complessiva del libro o dammi idee per i prossimi capitoli", height=100)
-    
+    domanda_luce = st.text_area(
+        "Chiedi un consiglio o come andare avanti a Luce:",
+        placeholder="Es: Analizza la coerenza complessiva del libro o dammi idee per i prossimi capitoli",
+        height=100,
+    )
+
     st.write("🎙️ **Parla a voce con Luce:**")
     audio_bytes_luce = audio_recorder(
-        text="Clicca per registrare la domanda", 
-        icon_size="2x", 
+        text="Clicca per registrare la domanda",
+        icon_size="2x",
         neutral_color="#FFFFFF",
         recording_color="#FF0000",
-        key="rec_luce"
+        key="rec_luce",
     )
-    
-    testo_voce_luce = st.session_state.get('testo_voce_luce_temp', '')
-    
+
+    testo_voce_luce = st.session_state.get("testo_voce_luce_temp", "")
+
     if audio_bytes_luce:
         col_btn_l1, col_btn_l2 = st.columns(2)
         with col_btn_l1:
-            if st.button("🛑 STOP & TRASCRIVI", type="primary", use_container_width=True, key="btn_stop_luce"):
+            if st.button(
+                "🛑 STOP & TRASCRIVI",
+                type="primary",
+                use_container_width=True,
+                key="btn_stop_luce",
+            ):
                 with st.spinner("🎧 Trascrizione per Luce..."):
                     try:
                         resp_audio_l = client.models.generate_content(
-                            model='gemini-3.8-flash',
-                            contents=["Trascrivi fedelmente questo audio in italiano:", genai.types.Part.from_bytes(data=audio_bytes_luce, mime_type="audio/wav")]
+                            model="gemini-3.8-flash",
+                            contents=[
+                                "Trascrivi fedelmente questo audio in italiano:",
+                                genai.types.Part.from_bytes(
+                                    data=audio_bytes_luce, mime_type="audio/wav"
+                                ),
+                            ],
                         )
-                        st.session_state['testo_voce_luce_temp'] = resp_audio_l.text
+                        st.session_state["testo_voce_luce_temp"] = (
+                            resp_audio_l.text
+                        )
                         st.toast("✅ Messaggio per Luce trascritto!", icon="💡")
                         st.rerun()
                     except Exception as e:
                         st.error(f"Errore audio Luce: {e}")
         with col_btn_l2:
-            if st.button("🗑️️ CANCELLA AUDIO", use_container_width=True, key="btn_del_luce"):
-                st.session_state['testo_voce_luce_temp'] = ""
-                st.toast("🗑️ Audio cancellato!", icon="🧹")
+            if st.button(
+                "🗑️ CANCELLA AUDIO", use_container_width=True, key="btn_del_luce"
+            ):
+                st.session_state["testo_voce_luce_temp"] = ""
+                st.toast("🗑️️ Audio cancellato!", icon="🧹")
                 st.rerun()
 
     testo_libro_completo = ""
     if st.session_state["libro"]:
         testo_libro_completo = "\n=== MEMORIA DEL LIBRO (SCENE INSERITE NELLA NARRATIVA UNICA) ===\n"
-        scene_ordinate = sorted(st.session_state["libro"].items(), key=lambda x: x[1].get("capitolo", 0))
+        scene_ordinate = sorted(
+            st.session_state["libro"].items(),
+            key=lambda x: x[1].get("capitolo", 0),
+        )
         for tit, d in scene_ordinate:
             testo_libro_completo += f"\n--- CAPITOLO {d['capitolo']}: {tit} ---\nPENSIERI ORIGINALI DI FEDERICO:\n{d.get('pensieri_federico', '')}\n\nTESTO SCENA:\n{d['testo']}\n"
 
     if st.button("💬 PARLA CON LUCE", use_container_width=True, type="primary"):
-        testo_completo_domanda = domanda_luce + ("\n" + testo_voce_luce if testo_voce_luce else "")
-        if testo_completo_domanda or testo_file_luce or testo_scena_selezionata or testo_libro_completo:
-            with st.spinner("Luce sta analizzando il libro e le informazioni..."):
+        testo_completo_domanda = domanda_luce + (
+            "\n" + testo_voce_luce if testo_voce_luce else ""
+        )
+        if (
+            testo_completo_domanda
+            or testo_file_luce
+            or testo_scena_selezionata
+            or testo_libro_completo
+        ):
+            with st.spinner("Luce sta analizzando il libro..."):
                 try:
                     prompt_l = f"""Sei Luce, un'esperta editor narrativa e consulente letteraria d'élite per romanzi.
 Hai accesso completo alla memoria del "LIBRO" (l'insieme dei capitoli ufficialmente approvati) e alle singole scene.
@@ -311,14 +393,15 @@ File allegato: {testo_file_luce}
 Domanda dello scrittore: {testo_completo_domanda}"""
 
                     resp_l = client.models.generate_content(
-                        model='gemini-3.8-flash',
-                        contents=prompt_l
+                        model="gemini-3.8-flash", contents=prompt_l
                     )
                     st.info(f"**Luce:** {resp_l.text}")
                 except Exception as e:
                     st.error(f"Errore: {e}")
         else:
-            st.warning("Aggiungi scene al libro, carica un file o fai una domanda a Luce!")
+            st.warning(
+                "Aggiungi scene al libro, carica un file o fai una domanda a Luce!"
+            )
 
 # --- COLONNA INFERIORE DESTRA: ARCHIVIO -> LIBRO -> PERSONAGGI ---
 with col_destra_inferiore:
@@ -326,29 +409,46 @@ with col_destra_inferiore:
     st.header("📚 ARCHIVIO SCENE SALVATE")
     if st.session_state["scene_salvate"]:
         for tit, dati in st.session_state["scene_salvate"].items():
-            in_lib = dati.get("in_libro", False) or (tit in st.session_state["libro"])
-            
+            in_lib = dati.get("in_libro", False) or (
+                tit in st.session_state["libro"]
+            )
+
             if in_lib:
-                st.markdown(f"<div class='scena-libro'>📖 Cap {dati['capitolo']}: {tit} (Nel Libro)</div>", unsafe_allow_html=True)
+                st.markdown(
+                    f"<div class='scena-libro'>📖 Cap {dati['capitolo']}: {tit} (Nel Libro)</div>",
+                    unsafe_allow_html=True,
+                )
             elif dati.get("evidenziata", False):
-                st.markdown(f"<div class='scena-evidenziata'>🟨 Cap {dati['capitolo']}: {tit} (In Memoria)</div>", unsafe_allow_html=True)
+                st.markdown(
+                    f"<div class='scena-evidenziata'>🟨 Cap {dati['capitolo']}: {tit} (In Memoria)</div>",
+                    unsafe_allow_html=True,
+                )
             else:
                 st.write(f"📄 **Cap {dati['capitolo']}:** {tit}")
-            
+
             with st.expander(f"Leggi '{tit}'"):
                 if dati.get("pensieri_federico"):
-                    st.caption(f"💭 **Pensieri di Federico:** {dati['pensieri_federico']}")
+                    st.caption(
+                        f"💭 **Pensieri di Federico:** {dati['pensieri_federico']}"
+                    )
                     st.divider()
                 st.write(dati["testo"])
                 st.write("")
-                
+
                 if not in_lib:
-                    if st.button(f"📖 Aggiungi al Libro", key=f"add_lib_{tit}", use_container_width=True):
+                    if st.button(
+                        f"📖 Aggiungi al Libro",
+                        key=f"add_lib_{tit}",
+                        use_container_width=True,
+                    ):
                         st.session_state["libro"][tit] = dati
                         st.session_state["scene_salvate"][tit]["in_libro"] = True
                         salva_dati(FILE_LIBRO, st.session_state["libro"])
                         salva_dati(FILE_SCENE, st.session_state["scene_salvate"])
-                        st.toast(f"Aggiunto '{tit}' al Libro e alla memoria di Luce!", icon="📖")
+                        st.toast(
+                            f"Aggiunto '{tit}' al Libro e alla memoria di Luce!",
+                            icon="📖",
+                        )
                         st.rerun()
     else:
         st.caption("Nessuna scena ancora salvata nell'archivio.")
@@ -358,28 +458,46 @@ with col_destra_inferiore:
     # 2. IL LIBRO
     st.header("📖 IL LIBRO")
     if st.session_state["libro"]:
-        st.caption(f"Contiene **{len(st.session_state['libro'])}** scene che formano l'opera unica.")
-        scene_libro_ord = sorted(st.session_state["libro"].items(), key=lambda x: x[1].get("capitolo", 0))
+        st.caption(
+            f"Contiene **{len(st.session_state['libro'])}** scene che formano l'opera unica."
+        )
+        scene_libro_ord = sorted(
+            st.session_state["libro"].items(),
+            key=lambda x: x[1].get("capitolo", 0),
+        )
         for tit, dati in scene_libro_ord:
-            st.markdown(f"<div class='scena-libro'>📖 Cap {dati['capitolo']}: {tit}</div>", unsafe_allow_html=True)
+            st.markdown(
+                f"<div class='scena-libro'>📖 Cap {dati['capitolo']}: {tit}</div>",
+                unsafe_allow_html=True,
+            )
             col_b1, col_b2 = st.columns([3, 1])
             with col_b1:
                 with st.expander(f"Leggi Cap {dati['capitolo']}: {tit}"):
                     if dati.get("pensieri_federico"):
-                        st.caption(f"💭 **Pensieri di Federico:** {dati['pensieri_federico']}")
+                        st.caption(
+                            f"💭 **Pensieri di Federico:** {dati['pensieri_federico']}"
+                        )
                         st.divider()
                     st.write(dati["testo"])
             with col_b2:
-                if st.button("❌ Rimuovi", key=f"rem_lib_{tit}", use_container_width=True):
+                if st.button(
+                    "❌ Rimuovi",
+                    key=f"rem_lib_{tit}",
+                    use_container_width=True,
+                ):
                     del st.session_state["libro"][tit]
                     if tit in st.session_state["scene_salvate"]:
-                        st.session_state["scene_salvate"][tit]["in_libro"] = False
+                        st.session_state["scene_salvate"][tit][
+                            "in_libro"
+                        ] = False
                     salva_dati(FILE_LIBRO, st.session_state["libro"])
                     salva_dati(FILE_SCENE, st.session_state["scene_salvate"])
                     st.toast(f"Rimosso '{tit}' dal Libro", icon="🗑️")
                     st.rerun()
     else:
-        st.caption("Nessuna scena inserita nel Libro. Aggiungi le scene dall'Archivio sovrastante.")
+        st.caption(
+            "Nessuna scena inserita nel Libro. Aggiungi le scene dall'Archivio sovrastante."
+        )
 
     st.divider()
 
@@ -388,17 +506,19 @@ with col_destra_inferiore:
     with st.expander("➕ Aggiungi / Modifica Personaggio"):
         nome_p = st.text_input("Nome Personaggio:")
         desc_p = st.text_area("Profilo e Carattere:", height=80)
-        file_p = st.file_uploader("📂 Carica file .txt profilo:", type=["txt"], key="file_p_up")
+        file_p = st.file_uploader(
+            "📂 Carica file .txt profilo:", type=["txt"], key="file_p_up"
+        )
         if file_p is not None:
             desc_p += "\n" + file_p.read().decode("utf-8", errors="ignore")
-            if st.session_state.get('last_p_file') != file_p.name:
-                st.session_state['last_p_file'] = file_p.name
-                st.toast("✅ Profilo personaggio caricato da file!", icon="👤")
-        
+
         if st.button("💾 Salva Personaggio", use_container_width=True):
             if nome_p:
                 if nome_p not in st.session_state["personaggi"]:
-                    st.session_state["personaggi"][nome_p] = {"profilo": desc_p, "ricordi": {}}
+                    st.session_state["personaggi"][nome_p] = {
+                        "profilo": desc_p,
+                        "ricordi": {},
+                    }
                 else:
                     st.session_state["personaggi"][nome_p]["profilo"] = desc_p
                 salva_dati(FILE_PERSONAGGI, st.session_state["personaggi"])
@@ -412,3 +532,54 @@ with col_destra_inferiore:
                 st.caption("**RICORDI:**")
                 for k, v in info.get("ricordi", {}).items():
                     st.caption(f"- Cap {k}: {v}")
+
+    st.divider()
+
+    # ==========================================
+    # 💾 SALVATAGGIO & RIPRISTINO BACKUP DATI
+    # ==========================================
+    st.header("💾 BACKUP & RIPRISTINO DATI")
+
+    dati_completi_backup = {
+        "personaggi": st.session_state["personaggi"],
+        "scene_salvate": st.session_state["scene_salvate"],
+        "libro": st.session_state["libro"],
+    }
+    json_str = json.dumps(dati_completi_backup, ensure_ascii=False, indent=4)
+
+    st.download_button(
+        label="📥 Scarica Backup Archivio (JSON)",
+        data=json_str,
+        file_name="backup_mocc_ia.json",
+        mime="application/json",
+        use_container_width=True,
+    )
+
+    file_backup_up = st.file_uploader(
+        "📤 Ricarica Backup salvato (.json):", type=["json"], key="up_backup"
+    )
+    if file_backup_up is not None:
+        try:
+            dati_caricati = json.load(file_backup_up)
+            if (
+                "scene_salvate" in dati_caricati
+                and "personaggi" in dati_caricati
+            ):
+                st.session_state["personaggi"] = dati_caricati.get(
+                    "personaggi", {}
+                )
+                st.session_state["scene_salvate"] = dati_caricati.get(
+                    "scene_salvate", {}
+                )
+                st.session_state["libro"] = dati_caricati.get("libro", {})
+
+                salva_dati(FILE_PERSONAGGI, st.session_state["personaggi"])
+                salva_dati(FILE_SCENE, st.session_state["scene_salvate"])
+                salva_dati(FILE_LIBRO, st.session_state["libro"])
+
+                st.toast(
+                    "🎉 Archivio e Libro ripristinati con successo!", icon="✅"
+                )
+                st.rerun()
+        except Exception as e:
+            st.error(f"Errore nel caricamento del file backup: {e}")
