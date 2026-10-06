@@ -31,7 +31,7 @@ client = genai.Client(api_key=API_KEY)
 
 st.set_page_config(page_title="MOCCIA.IA", page_icon="📚", layout="wide")
 
-# CSS Personalizzato con FIX DEFINITIVO per il microfono (visibile, centrato e con fondino)
+# CSS Personalizzato
 st.markdown("""
     <style>
     .scena-evidenziata {
@@ -50,7 +50,6 @@ st.markdown("""
         font-weight: bold;
         margin-bottom: 6px;
     }
-    /* Barra bianca evidente di separazione */
     .separatore-bianco {
         border: none;
         height: 4px;
@@ -58,8 +57,6 @@ st.markdown("""
         margin: 35px 0;
         box-shadow: 0px 0px 8px rgba(255, 255, 255, 0.8);
     }
-    
-    /* 🎙️ FIX DEFINITIVO MICROFONO: Ampiezza e centraggio perfetti con fondino evidente */
     iframe[title="audio_recorder_streamlit.audio_recorder"] {
         height: 80px !important;
         width: 100% !important;
@@ -77,11 +74,14 @@ st.markdown("""
 st.title("🎬 MOCCIA.IA")
 
 # ==========================================
-# 💾 CARICAMENTO E SALVATAGGIO DATI
+# 💾 CARICAMENTO E SALVATAGGIO DATI (CON PERCORSI ASSOLUTI)
 # ==========================================
-FILE_PERSONAGGI = "personaggi_memoria.json"
-FILE_SCENE = "scene_salvate.json"
-FILE_LIBRO = "libro_capitoli.json"
+# Determina la cartella esatta in cui si trova il file di questo script
+CARTELLA_BASE = os.path.dirname(os.path.abspath(__file__))
+
+FILE_PERSONAGGI = os.path.join(CARTELLA_BASE, "personaggi_memoria.json")
+FILE_SCENE = os.path.join(CARTELLA_BASE, "scene_salvate.json")
+FILE_LIBRO = os.path.join(CARTELLA_BASE, "libro_capitoli.json")
 
 def carica_dati(filepath):
     if os.path.exists(filepath):
@@ -279,7 +279,7 @@ with col_luce:
                     except Exception as e:
                         st.error(f"Errore audio Luce: {e}")
         with col_btn_l2:
-            if st.button("🗑️ CANCELLA AUDIO", use_container_width=True, key="btn_del_luce"):
+            if st.button("🗑️️ CANCELLA AUDIO", use_container_width=True, key="btn_del_luce"):
                 st.session_state['testo_voce_luce_temp'] = ""
                 st.toast("🗑️ Audio cancellato!", icon="🧹")
                 st.rerun()
