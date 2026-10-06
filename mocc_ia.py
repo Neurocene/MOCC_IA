@@ -31,7 +31,7 @@ client = genai.Client(api_key=API_KEY)
 
 st.set_page_config(page_title="MOCCIA.IA", page_icon="📚", layout="wide")
 
-# CSS Personalizzato con FIX per centraggio e visibilità microfono
+# CSS Personalizzato con FIX DEFINITIVO per il microfono (visibile, centrato e con fondino)
 st.markdown("""
     <style>
     .scena-evidenziata {
@@ -59,15 +59,15 @@ st.markdown("""
         box-shadow: 0px 0px 8px rgba(255, 255, 255, 0.8);
     }
     
-    /* 🎙️️ Fix per centrare il microfono e renderlo interamente visibile */
+    /* 🎙️ FIX DEFINITIVO MICROFONO: Ampiezza e centraggio perfetti con fondino evidente */
     iframe[title="audio_recorder_streamlit.audio_recorder"] {
-        background-color: #2b2b2b !important;
-        padding: 8px 16px !important;
-        border-radius: 20px !important;
-        border: 1px solid #444444 !important;
-        box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.3) !important;
-        height: auto !important;
-        min-height: 45px !important;
+        height: 80px !important;
+        width: 100% !important;
+        background-color: #1e1e1e !important;
+        border: 2px solid #ffffff !important;
+        border-radius: 12px !important;
+        padding: 6px !important;
+        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.5) !important;
         display: block !important;
         margin: 10px auto !important;
     }
@@ -376,7 +376,7 @@ with col_destra_inferiore:
                         st.session_state["scene_salvate"][tit]["in_libro"] = False
                     salva_dati(FILE_LIBRO, st.session_state["libro"])
                     salva_dati(FILE_SCENE, st.session_state["scene_salvate"])
-                    st.toast(f"Rimosso '{tit}' dal Libro", icon="🗑️️")
+                    st.toast(f"Rimosso '{tit}' dal Libro", icon="🗑️")
                     st.rerun()
     else:
         st.caption("Nessuna scena inserita nel Libro. Aggiungi le scene dall'Archivio sovrastante.")
