@@ -1,6 +1,5 @@
 import json
 import os
-from audio_recorder_streamlit import audio_recorder
 from openai import OpenAI
 import streamlit as st
 from supabase import create_client
@@ -56,9 +55,7 @@ if SUPABASE_URL and SUPABASE_KEY:
     except Exception as e:
         st.error(f"Errore connessione Supabase: {e}")
 
-# ==========================================
-# 🎨 STILI CSS PER MICROFONO E NOTIFICA
-# ==========================================
+# STILI CSS
 st.markdown(
     """
     <style>
@@ -84,33 +81,6 @@ st.markdown(
         background-color: #ffffff;
         margin: 35px 0;
         box-shadow: 0px 0px 8px rgba(255, 255, 255, 0.8);
-    }
-    
-    /* 🎙️ Personalizzazione Grafica del Microfono */
-    iframe[title="audio_recorder_streamlit.audio_recorder"] {
-        height: 85px !important;
-        width: 100% !important;
-        background-color: #121212 !important;
-        border: 2px solid #2ecc71 !important;
-        border-radius: 12px !important;
-        padding: 8px !important;
-        box-shadow: 0px 4px 12px rgba(46, 204, 113, 0.3) !important;
-        display: block !important;
-        margin: 10px auto !important;
-    }
-
-    /* Effetto Lampeggiante per lo Stato Recording */
-    @keyframes blinker {
-        50% { opacity: 0; }
-    }
-    .recording-status {
-        color: #e74c3c;
-        font-weight: bold;
-        font-size: 15px;
-        animation: blinker 1.2s linear infinite;
-        display: inline-block;
-        margin-top: 5px;
-        margin-bottom: 10px;
     }
     </style>
 """,
@@ -220,33 +190,27 @@ with col_pensieri:
     appunti = st.text_area(
         "Scrivi o modifica i tuoi pensieri:",
         value=testo_voce_o_file,
-        height=240,
+        height=220,
         placeholder="Es: Marta e Giovanni si incontrano a Ponte Milvio...",
     )
     st.session_state["appunti_temp"] = appunti
 
     # ==========================================
-    # 🎙 REGISTRAZIONE VOCALE OTTIMIZZATA
+    # 🎙 REGISTRAZIONE VOCALE NATIVA (SENZA BLOCCHI)
     # ==========================================
     st.markdown("### 🎙️ Registrazione vocale")
+    
+    # Componente audio fluido di Streamlit
+    audio_value_pensieri = st.audio_input("Premi il microfono per registrare i pensieri", key="audio_pensieri")
 
-    audio_bytes_appunti = audio_recorder(
-        text="Clicca l'icona per iniziare a registrare, riclicca per completare",
-        icon_size="2x",
-        neutral_color="#2ECC71",   # Verde quando è in attesa
-        recording_color="#E74C3C", # Rosso brillante durante la registrazione
-        key="rec_appunti",
-    )
-
-    if audio_bytes_appunti:
-        st.markdown("<span class='recording-status'>🔴 RECORDING COMPLETATO - TRASCRIZIONE IN CORSO...</span>", unsafe_allow_html=True)
-
+    if audio_value_pensieri is not None:
         if client:
-            with st.spinner("🎧 Trascrizione automatica in corso con Whisper..."):
+            with st.spinner("🎧 Trascrizione veloce in corso con Whisper..."):
                 try:
+                    # Salvataggio temporaneo per invio a OpenAI Whisper
                     temp_path = "temp_audio_pensieri.wav"
                     with open(temp_path, "wb") as f:
-                        f.write(audio_bytes_appunti)
+                        f.write(audio_value_pensieri.read())
 
                     with open(temp_path, "rb") as audio_file:
                         transcript = client.audio.transcriptions.create(
@@ -260,10 +224,10 @@ with col_pensieri:
                     if os.path.exists(temp_path):
                         os.remove(temp_path)
 
-                    st.toast("✅ Registrazione trascritta con successo nei pensieri!", icon="🎙️")
+                    st.toast("✅ Registrazione trascritta con successo!", icon="🎙️")
                     st.rerun()
                 except Exception as e:
-                    st.error(f"Errore durante la trascrizione audio: {e}")
+                    st.error(f"Errore durante la trascrizione: {e}")
         else:
             st.error("Inserisci la tua OPENAI_API_KEY nei Secrets di Streamlit.")
 
@@ -407,24 +371,17 @@ with col_luce:
     )
 
     st.markdown("### 🎙️ Registrazione vocale Luce")
-    audio_bytes_luce = audio_recorder(
-        text="Clicca per registrare la domanda per Luce",
-        icon_size="2x",
-        neutral_color="#2ECC71",   # Verde in pausa/pronto
-        recording_color="#E74C3C", # Rosso in registrazione
-        key="rec_luce",
-    )
+    audio_value_luce = st.audio_input("Parla a voce con Luce", key="audio_luce")
 
     testo_voce_luce = st.session_state.get("testo_voce_luce_temp", "")
 
-    if audio_bytes_luce:
-        st.markdown("<span class='recording-status'>🔴 RECORDING LUCE COMPLETATO - TRASCRIZIONE IN CORSO...</span>", unsafe_allow_html=True)
+    if audio_value_luce is not None:
         if client:
             with st.spinner("🎧 Trascrizione per Luce con Whisper..."):
                 try:
                     temp_path_luce = "temp_luce_audio.wav"
                     with open(temp_path_luce, "wb") as f:
-                        f.write(audio_bytes_luce)
+                        f.write(audio_value_luce.read())
 
                     with open(temp_path_luce, "rb") as audio_file:
                         transcript_l = client.audio.transcriptions.create(
