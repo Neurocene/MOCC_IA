@@ -38,7 +38,7 @@ if OPENAI_KEY and OPENAI_KEY.strip() != "":
     try:
         client = OpenAI(api_key=OPENAI_KEY)
     except Exception as e:
-        st.error(f"⚠️️ Errore nell'inizializzazione di OpenAI: {e}")
+        st.error(f"⚠️ Errore nell'inizializzazione di OpenAI: {e}")
 else:
     st.warning(
         "⚠️ Attenzione: OPENAI_API_KEY non trovata o vuota nei Secrets di Streamlit Cloud."
@@ -91,7 +91,7 @@ st.title("🎬 MOCCIA.IA")
 
 
 # ==========================================
-# 💾 CARICAMENTO E SALVATAGGIO CLOUD SUPABASE
+# 💾 CARICAMENTO E SALVATAGGIO CLOUD SUPABASE (PROTEGGI CON TRY/EXCEPT)
 # ==========================================
 def carica_dati_supabase():
     scene, libro, personaggi = {}, {}, {}
@@ -107,8 +107,8 @@ def carica_dati_supabase():
                 "testo": r.get("testo", ""),
                 "in_libro": r.get("in_libro", False),
             }
-    except Exception:
-        pass
+    except Exception as e:
+        st.warning(f"⚠️ Impossibile caricare scene da Supabase: {e}")
 
     try:
         res_libro = supabase.table("libro").select("*").execute()
@@ -118,8 +118,8 @@ def carica_dati_supabase():
                 "pensieri_federico": r.get("pensieri_federico", ""),
                 "testo": r.get("testo", ""),
             }
-    except Exception:
-        pass
+    except Exception as e:
+        st.warning(f"⚠️ Impossibile caricare il libro da Supabase: {e}")
 
     try:
         res_p = supabase.table("personaggi").select("*").execute()
@@ -128,47 +128,59 @@ def carica_dati_supabase():
                 "profilo": r.get("profilo", ""),
                 "ricordi": r.get("ricordi", {}),
             }
-    except Exception:
-        pass
+    except Exception as e:
+        st.warning(f"⚠️ Impossibile caricare i personaggi da Supabase: {e}")
 
     return scene, libro, personaggi
 
 
 def salva_scena_supabase(titolo, dati):
     if supabase:
-        supabase.table("scene").upsert(
-            {
-                "titolo": titolo,
-                "capitolo": dati["capitolo"],
-                "pensieri_federico": dati["pensieri_federico"],
-                "testo": dati["testo"],
-                "in_libro": dati["in_libro"],
-            }
-        ).execute()
+        try:
+            supabase.table("scene").upsert(
+                {
+                    "titolo": titolo,
+                    "capitolo": dati["capitolo"],
+                    "pensieri_federico": dati["pensieri_federico"],
+                    "testo": dati["testo"],
+                    "in_libro": dati["in_libro"],
+                }
+            ).execute()
+        except Exception as e:
+            st.error(f"❌ Errore salvataggio scena su Supabase (Disabilita RLS o assegna Primary Key a 'titolo'): {e}")
 
 
 def salva_libro_supabase(titolo, dati):
     if supabase:
-        supabase.table("libro").upsert(
-            {
-                "titolo": titolo,
-                "capitolo": dati["capitolo"],
-                "pensieri_federico": dati["pensieri_federico"],
-                "testo": dati["testo"],
-            }
-        ).execute()
+        try:
+            supabase.table("libro").upsert(
+                {
+                    "titolo": titolo,
+                    "capitolo": dati["capitolo"],
+                    "pensieri_federico": dati["pensieri_federico"],
+                    "testo": dati["testo"],
+                }
+            ).execute()
+        except Exception as e:
+            st.error(f"❌ Errore salvataggio libro su Supabase: {e}")
 
 
 def rimuovi_libro_supabase(titolo):
     if supabase:
-        supabase.table("libro").delete().eq("titolo", titolo).execute()
+        try:
+            supabase.table("libro").delete().eq("titolo", titolo).execute()
+        except Exception as e:
+            st.error(f"❌ Errore rimozione dal libro su Supabase: {e}")
 
 
 def salva_personaggio_supabase(nome, dati):
     if supabase:
-        supabase.table("personaggi").upsert(
-            {"nome": nome, "profilo": dati["profilo"], "ricordi": dati["ricordi"]}
-        ).execute()
+        try:
+            supabase.table("personaggi").upsert(
+                {"nome": nome, "profilo": dati["profilo"], "ricordi": dati["ricordi"]}
+            ).execute()
+        except Exception as e:
+            st.error(f"❌ Errore salvataggio personaggio su Supabase: {e}")
 
 
 if "scene_salvate" not in st.session_state:
@@ -240,7 +252,6 @@ with col_pensieri:
                     if os.path.exists(temp_path):
                         os.remove(temp_path)
 
-                    # Incrementiamo la chiave per azzerare l'audio ed evitare loop infiniti
                     st.session_state["key_audio_pensieri"] += 1
                     st.toast(
                         "✅ Registrazione trascritta con successo!", icon="🎙️"
@@ -471,7 +482,7 @@ Hai accesso completo alla memoria del "LIBRO" (l'insieme dei capitoli ufficialme
 IL TUO OBIETTIVO:
 1. Mantenere una visione d'insieme del LIBRO come opera unica, organica e coerente.
 2. Identificare discrepanze, buchi di trama, anomalie temporali, incongruenze nei personaggi o nei pensieri di Federico.
-3. Proporre correzioni pratiche e concrete per armonizzare il romanzo.
+3. Proporre correzioni pratiche e concrete per harmonizzare il romanzo.
 4. Suggerire idee per i capitoli successivi garantendo continuità e ritmo.
 
 {testo_libro_completo}
