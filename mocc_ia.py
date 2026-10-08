@@ -1,8 +1,8 @@
 import json
 import os
+from github import Github, GithubException
 from openai import OpenAI
 import streamlit as st
-from supabase import create_client
 
 # ==========================================
 # 🔑 1. CONTROLLO ACCESSO E PASSWORD
@@ -26,11 +26,11 @@ if not st.session_state["autenticato"]:
     st.stop()
 
 # ==========================================
-# 2. CONFIGURAZIONE CHIAVI, SUPABASE E PAGINA
+# 2. CONFIGURAZIONE CHIAVI, GITHUB E PAGINA
 # ==========================================
 st.set_page_config(page_title="MOCCIA.IA", page_icon="📚", layout="wide")
 
-# Inizializzazione protetta Client OpenAI (ChatGPT)
+# Inizializzazione Client OpenAI
 OPENAI_KEY = st.secrets.get("OPENAI_API_KEY", None)
 
 client = None
@@ -41,19 +41,20 @@ if OPENAI_KEY and OPENAI_KEY.strip() != "":
         st.error(f"⚠️ Errore nell'inizializzazione di OpenAI: {e}")
 else:
     st.warning(
-        "⚠️ Attenzione: OPENAI_API_KEY non trovata o vuota nei Secrets di Streamlit Cloud."
+        "⚠️ Attenzione: OPENAI_API_KEY non trovata nei Secrets di Streamlit Cloud."
     )
 
-# Configurazione Connessione Supabase
-SUPABASE_URL = st.secrets.get("SUPABASE_URL", "")
-SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "")
+# Configurazione GitHub Storage
+GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", "")
+GITHUB_REPO = st.secrets.get("GITHUB_REPO", "")
 
-supabase = None
-if SUPABASE_URL and SUPABASE_KEY:
+repo_github = None
+if GITHUB_TOKEN and GITHUB_REPO:
     try:
-        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+        g = Github(GITHUB_TOKEN)
+        repo_github = g.get_repo(GITHUB_REPO)
     except Exception as e:
-        st.error(f"Errore connessione Supabase: {e}")
+        st.error(f"⚠️ Errore connessione GitHub Storage: {e}")
 
 # STILI CSS
 st.markdown(
@@ -91,105 +92,81 @@ st.title("🎬 MOCCIA.IA")
 
 
 # ==========================================
-# 💾 CARICAMENTO E SALVATAGGIO CLOUD SUPABASE (PROTEGGI CON TRY/EXCEPT)
+# 💾 CARICAMENTO E SALVATAGGIO SU GITHUB STORAGE
 # ==========================================
-def carica_dati_supabase():
-    scene, libro, personaggi = {}, {}, {}
-    if not supabase:
-        return scene, libro, personaggi
+FILE_DATI_PATH = "dati_libro.json"
+
+
+def carica_dati_github():
+    dati_vuoti = {"scene": {}, "libro": {}, "personaggi": {}}
+    if not repo_github:
+        return dati_vuoti["scene"], dati_vuoti["libro"], dati_vuoti["personaggi"]
 
     try:
-        res_scene = supabase.table("scene").select("*").execute()
-        for r in res_scene.data:
-            scene[r["titolo"]] = {
-                "capitolo": r["capitolo"],
-                "pensieri_federico": r.get("pensieri_federico", ""),
-                "testo": r.get("testo", ""),
-                "in_libro": r.get("in_libro", False),
-            }
-    except Exception as e:
-        st.warning(f"⚠️ Impossibile caricare scene da Supabase: {e}")
+        contents = repo_github.get_contents(FILE_DATI_PATH)
+        data = json.loads(contents.decoded_content.decode("utf-8"))
+        return (
+            data.get("scene", {}),
+            data.get("libro", {}),
+            data.get("personaggi", {}),
+        )
+    except GithubException as e:
+        if e.status == 404:
+            salva_dati_github(dati_vuoti, msg_commit="Inizializzazione dati_libro.json")
+            return (
+                dati_vuoti["scene"],
+                dati_vuoti["libro"],
+                dati_vuoti["personaggi"],
+            )
+        else:
+            st.warning(f"⚠️ Errore lettura dati da GitHub: {e}")
+            return dati_vuoti["scene"], dati_vuoti["libro"], dati_vuoti["personaggi"]
+
+
+def salva_dati_github(dati_completi, msg_commit="Aggiornamento dati libro"):
+    if not repo_github:
+        st.error("⚠️ Connessione a GitHub Storage non configurata nei Secrets.")
+        return
 
     try:
-        res_libro = supabase.table("libro").select("*").execute()
-        for r in res_libro.data:
-            libro[r["titolo"]] = {
-                "capitolo": r["capitolo"],
-                "pensieri_federico": r.get("pensieri_federico", ""),
-                "testo": r.get("testo", ""),
-            }
+        json_content = json.dumps(dati_completi, indent=2, ensure_ascii=False)
+        try:
+            contents = repo_github.get_contents(FILE_DATI_PATH)
+            repo_github.update_file(
+                FILE_DATI_PATH,
+                msg_commit,
+                json_content,
+                contents.sha,
+            )
+        except GithubException as e:
+            if e.status == 404:
+                repo_github.create_file(
+                    FILE_DATI_PATH,
+                    msg_commit,
+                    json_content,
+                )
+            else:
+                raise e
     except Exception as e:
-        st.warning(f"⚠️ Impossibile caricare il libro da Supabase: {e}")
-
-    try:
-        res_p = supabase.table("personaggi").select("*").execute()
-        for r in res_p.data:
-            personaggi[r["nome"]] = {
-                "profilo": r.get("profilo", ""),
-                "ricordi": r.get("ricordi", {}),
-            }
-    except Exception as e:
-        st.warning(f"⚠️ Impossibile caricare i personaggi da Supabase: {e}")
-
-    return scene, libro, personaggi
-
-
-def salva_scena_supabase(titolo, dati):
-    if supabase:
-        try:
-            supabase.table("scene").upsert(
-                {
-                    "titolo": titolo,
-                    "capitolo": dati["capitolo"],
-                    "pensieri_federico": dati["pensieri_federico"],
-                    "testo": dati["testo"],
-                    "in_libro": dati["in_libro"],
-                }
-            ).execute()
-        except Exception as e:
-            st.error(f"❌ Errore salvataggio scena su Supabase (Disabilita RLS o assegna Primary Key a 'titolo'): {e}")
-
-
-def salva_libro_supabase(titolo, dati):
-    if supabase:
-        try:
-            supabase.table("libro").upsert(
-                {
-                    "titolo": titolo,
-                    "capitolo": dati["capitolo"],
-                    "pensieri_federico": dati["pensieri_federico"],
-                    "testo": dati["testo"],
-                }
-            ).execute()
-        except Exception as e:
-            st.error(f"❌ Errore salvataggio libro su Supabase: {e}")
-
-
-def rimuovi_libro_supabase(titolo):
-    if supabase:
-        try:
-            supabase.table("libro").delete().eq("titolo", titolo).execute()
-        except Exception as e:
-            st.error(f"❌ Errore rimozione dal libro su Supabase: {e}")
-
-
-def salva_personaggio_supabase(nome, dati):
-    if supabase:
-        try:
-            supabase.table("personaggi").upsert(
-                {"nome": nome, "profilo": dati["profilo"], "ricordi": dati["ricordi"]}
-            ).execute()
-        except Exception as e:
-            st.error(f"❌ Errore salvataggio personaggio su Supabase: {e}")
+        st.error(f"❌ Errore durante il salvataggio su GitHub Storage: {e}")
 
 
 if "scene_salvate" not in st.session_state:
-    s, l, p = carica_dati_supabase()
+    s, l, p = carica_dati_github()
     st.session_state["scene_salvate"] = s
     st.session_state["libro"] = l
     st.session_state["personaggi"] = p
 
-# Chiavi dinamiche per reset immediato dei registratori
+
+def sincronizza_e_salva(msg_commit="Aggiornamento libro"):
+    dati = {
+        "scene": st.session_state["scene_salvate"],
+        "libro": st.session_state["libro"],
+        "personaggi": st.session_state["personaggi"],
+    }
+    salva_dati_github(dati, msg_commit=msg_commit)
+
+
 if "key_audio_pensieri" not in st.session_state:
     st.session_state["key_audio_pensieri"] = 0
 
@@ -214,9 +191,6 @@ with col_pensieri:
     )
     st.session_state["appunti_temp"] = appunti
 
-    # ==========================================
-    # 🎙 REGISTRAZIONE VOCALE CON RESET ISTANTANEO
-    # ==========================================
     st.markdown("### 🎙️ Registrazione vocale")
 
     key_pensieri = f"audio_pensieri_{st.session_state['key_audio_pensieri']}"
@@ -366,10 +340,10 @@ with col_scena:
                 "in_libro": False,
             }
             st.session_state["scene_salvate"][titolo_scena] = dati_scena
-            salva_scena_supabase(titolo_scena, dati_scena)
+            sincronizza_e_salva(msg_commit=f"Salvata scena '{titolo_scena}'")
 
             st.toast(
-                f"🎉 Scena '{titolo_scena}' salvata nel Cloud per tutti!",
+                f"🎉 Scena '{titolo_scena}' salvata permanentemente su GitHub Storage!",
                 icon="💾",
             )
             st.rerun()
@@ -386,7 +360,6 @@ st.markdown("<hr class='separatore-bianco'>", unsafe_allow_html=True)
 # ==========================================
 col_luce, col_destra_inferiore = st.columns([1, 1], gap="large")
 
-# --- COLONNA INFERIORE SINISTRA: LUCE ---
 with col_luce:
     st.header("💡 LUCE - EDITOR NARRATIVO")
 
@@ -482,7 +455,7 @@ Hai accesso completo alla memoria del "LIBRO" (l'insieme dei capitoli ufficialme
 IL TUO OBIETTIVO:
 1. Mantenere una visione d'insieme del LIBRO come opera unica, organica e coerente.
 2. Identificare discrepanze, buchi di trama, anomalie temporali, incongruenze nei personaggi o nei pensieri di Federico.
-3. Proporre correzioni pratiche e concrete per harmonizzare il romanzo.
+3. Proporre correzioni pratiche e concrete per armonizzare il romanzo.
 4. Suggerire idee per i capitoli successivi garantendo continuità e ritmo.
 
 {testo_libro_completo}
@@ -508,7 +481,6 @@ Domanda dello scrittore: {testo_completo_domanda}"""
 
 # --- COLONNA INFERIORE DESTRA: ARCHIVIO -> LIBRO -> PERSONAGGI ---
 with col_destra_inferiore:
-    # 1. ARCHIVIO SCENE
     st.header("📚 ARCHIVIO SCENE SALVATE")
     if st.session_state["scene_salvate"]:
         for tit, dati in st.session_state["scene_salvate"].items():
@@ -546,12 +518,9 @@ with col_destra_inferiore:
                     ):
                         st.session_state["libro"][tit] = dati
                         st.session_state["scene_salvate"][tit]["in_libro"] = True
-                        salva_libro_supabase(tit, dati)
-                        salva_scena_supabase(
-                            tit, st.session_state["scene_salvate"][tit]
-                        )
+                        sincronizza_e_salva(msg_commit=f"Aggiunto '{tit}' al Libro")
                         st.toast(
-                            f"Aggiunto '{tit}' al Libro sul Cloud!", icon="📖"
+                            f"Aggiunto '{tit}' al Libro su GitHub Storage!", icon="📖"
                         )
                         st.rerun()
     else:
@@ -559,7 +528,6 @@ with col_destra_inferiore:
 
     st.divider()
 
-    # 2. IL LIBRO
     st.header("📖 IL LIBRO")
     if st.session_state["libro"]:
         st.caption(
@@ -590,14 +558,11 @@ with col_destra_inferiore:
                     use_container_width=True,
                 ):
                     del st.session_state["libro"][tit]
-                    rimuovi_libro_supabase(tit)
                     if tit in st.session_state["scene_salvate"]:
                         st.session_state["scene_salvate"][tit][
                             "in_libro"
                         ] = False
-                        salva_scena_supabase(
-                            tit, st.session_state["scene_salvate"][tit]
-                        )
+                    sincronizza_e_salva(msg_commit=f"Rimosso '{tit}' dal Libro")
                     st.toast(f"Rimosso '{tit}' dal Libro", icon="🗑️")
                     st.rerun()
     else:
@@ -607,7 +572,6 @@ with col_destra_inferiore:
 
     st.divider()
 
-    # 3. GESTIONE PERSONAGGI
     st.header("🎭 GESTIONE PERSONAGGI")
     with st.expander("➕ Aggiungi / Modifica Personaggio"):
         nome_p = st.text_input("Nome Personaggio:")
@@ -627,7 +591,7 @@ with col_destra_inferiore:
                     .get("ricordi", {}),
                 }
                 st.session_state["personaggi"][nome_p] = dati_p
-                salva_personaggio_supabase(nome_p, dati_p)
+                sincronizza_e_salva(msg_commit=f"Salvato personaggio '{nome_p}'")
                 st.toast(f"👤 Personaggio {nome_p} salvato!", icon="💾")
                 st.rerun()
 
