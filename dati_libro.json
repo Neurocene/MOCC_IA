@@ -44,5 +44,10 @@
     }
   },
   "libro": {},
-  "personaggi": {}
+  "personaggi": {
+    "ELDA": {
+      "profilo": "è una donna di 65 anni che ha fatto la caposala e prende a cuore Nero come fosse suo nipote \n",
+      "ricordi": {}
+    }
+  }
 }
